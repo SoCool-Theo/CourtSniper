@@ -1,0 +1,25 @@
+# Virtual environment
+.venv/
+venv
+
+# User-specific files
+user_data/
+
+# Environment variables and secrets
+.env
+.env.local
+
+# Exclude Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Exclude OS-specific system files
+.DS_Store
+Thumbs.db
+
+# Exclude JetBrains IDE workspace settings
+.idea/
+*.iml
