@@ -114,6 +114,4 @@ Because Windows Task Scheduler runs in the background, you must provide absolute
 
 ## License & Liability
 
-This project is licensed under the terms of the MIT License; see the standalone `LICENSE` file in the root directory for full legal text.
-
-This software is provided "AS IS", without warranty of any kind. The authors are not legally liable for any account restrictions triggered by Meta's anti-bot algorithms or missed court reservations.
+This project is licensed under the [MIT License](LICENSE).
