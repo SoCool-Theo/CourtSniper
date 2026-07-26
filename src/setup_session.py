@@ -1,15 +1,19 @@
 import time
+import os
 from playwright.sync_api import sync_playwright
 
 def create_persistent_session():
     print("Launching Google Chrome to save your Facebook login...")
     with sync_playwright() as p:
-        # Launch persistent context using local Google Chrome
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        user_data_path = os.path.join(script_dir, "..", "user_data")
+
         browser = p.chromium.launch_persistent_context(
-            user_data_dir="./user_data",
-            channel = "chrome",  # Drives your installed Google Chrome app
-            headless = False,
-            viewport = {"width": 1280, "height": 720}
+            user_data_dir=user_data_path,
+            channel="chrome",
+            headless=False,
+            viewport={"width": 1280, "height": 720}
         )
 
         page = browser.new_page()
