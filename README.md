@@ -92,7 +92,7 @@ playwright install chromium
 
 ### 1. Unattended Execution
 
-Configure Windows Task Scheduler to launch `sniper.py` automatically at **few minutes before the target time to book**. This gives the browser a minute warm-up buffer before registration.
+Configure Windows Task Scheduler to launch `sniper.py` automatically at **few minutes before the booking target time**. This gives the browser a minute warm-up buffer before registration.
 
 ### 2. Absolute System Paths
 
