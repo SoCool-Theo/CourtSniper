@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict
 import os
+import subprocess
+import sys
 
 # Initialize the FastAPI application
 app = FastAPI(title="CourtSniper Web UI")
@@ -63,3 +65,23 @@ def update_config(updates: Dict[str, str]):
                 file.write(line)
 
     return {"message": "Configuration successfully updated on the server!"}
+
+
+@app.post("/api/run-setup")
+def trigger_setup():
+    """Triggers the manual Facebook login script in the background."""
+
+    # 1. Build the absolute path to setup_session.py (it lives in the same folder as this api.py)
+    setup_script_path = os.path.join(CURRENT_DIR, "setup_session.py")
+
+    if not os.path.exists(setup_script_path):
+        return {"error": "Could not find setup_session.py!"}
+
+    try:
+        # 2. Launch the script as a separate background process.
+        subprocess.Popen([sys.executable, setup_script_path], cwd=ROOT_DIR)
+
+        return {"message": "Setup session launched! Check your laptop screen."}
+
+    except Exception as e:
+        return {"error": f"Failed to launch script: {str(e)}"}
