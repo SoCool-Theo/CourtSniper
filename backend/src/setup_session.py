@@ -5,9 +5,10 @@ from playwright.sync_api import sync_playwright
 def create_persistent_session():
     print("Launching Google Chrome to save your Facebook login...")
     with sync_playwright() as p:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        user_data_path = os.path.join(script_dir, "..", "user_data")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        backend_dir = os.path.dirname(script_dir)
+        user_data_path = os.path.join(backend_dir, "user_data")
 
         browser = p.chromium.launch_persistent_context(
             user_data_dir=user_data_path,
