@@ -3,10 +3,10 @@
 venv
 
 # User-specific files
-user_data/
+backend/user_data/
 
 # Environment variables and secrets
-.env
+backend/.env
 .env.local
 
 # Exclude Python cache and compiled files

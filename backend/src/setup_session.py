@@ -7,7 +7,7 @@ def create_persistent_session():
     with sync_playwright() as p:
         script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        user_data_path = os.path.join(script_dir, "..", "user_data")
+        user_data_path = os.path.join(script_dir, "../..", "user_data")
 
         browser = p.chromium.launch_persistent_context(
             user_data_dir=user_data_path,
