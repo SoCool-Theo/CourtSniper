@@ -4,6 +4,22 @@ from datetime import datetime
 from playwright.sync_api import sync_playwright
 import config
 
+import sys
+from dotenv import load_dotenv
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(CURRENT_DIR)
+ENV_PATH = os.path.join(ROOT_DIR, ".env")
+
+load_dotenv(dotenv_path=ENV_PATH)
+
+# --- THE KILL SWITCH ---
+# If the Web UI set the status to anything other than "ARMED", shut down immediately.
+if os.getenv("STATUS") != "ARMED":
+    print("CourtSniper is DISARMED. Going back to sleep.")
+    sys.exit(0)
+# -----------------------
+
 def run_sniper():
     print("Initializing CourtSniper...")
 
