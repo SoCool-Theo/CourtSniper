@@ -12,7 +12,7 @@ export default function SecurityNotice() {
         </p>
       </div>
 
-      <button type="button" className="inline-flex min-h-9 shrink-0 items-center justify-center gap-5 rounded border border-court-warning/60 px-5 text-[0.65rem] font-bold uppercase tracking-wide text-court-text transition hover:bg-court-warning/10 hover:text-court-warning">
+      <button type="button" className="inline-flex min-h-9 w-full shrink-0 items-center justify-center gap-5 rounded border border-court-warning/60 px-5 text-[0.65rem] font-bold uppercase tracking-wide text-court-text transition hover:bg-court-warning/10 hover:text-court-warning sm:w-auto">
         Learn More
         <ChevronRight aria-hidden="true" className="h-4 w-4" />
       </button>

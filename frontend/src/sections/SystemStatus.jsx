@@ -28,7 +28,7 @@ export default function SystemStatus() {
     <div className="tactical-panel">
       <SectionHeader icon={PlugZap} title="System Status" />
 
-      <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {systemStatuses.map((status) => (
           <StatusCard key={status.label} {...status} />
         ))}

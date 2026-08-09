@@ -12,14 +12,15 @@ function getRemainingTime(targetDate) {
   };
 }
 
-function TimeUnit({ value, label, digits = 2 }) {
+function TimeUnit({ value, label, shortLabel, digits = 2 }) {
   return (
     <div className="min-w-0 text-center">
       <div className="font-mono font-bold leading-none tracking-[-0.08em] text-court-green drop-shadow-[0_0_16px_rgba(99,255,0,0.22)]">
         {value.toString().padStart(digits, '0')}
       </div>
-      <div className="mt-3 text-[0.62rem] font-bold uppercase tracking-label text-court-cyan sm:text-[0.68rem]">
-        {label}
+      <div className="mt-2 whitespace-nowrap text-[0.5rem] font-bold uppercase tracking-[0.06em] text-court-cyan sm:mt-3 sm:text-[0.68rem] sm:tracking-label">
+        <span className="sm:hidden">{shortLabel}</span>
+        <span className="hidden sm:inline">{label}</span>
       </div>
     </div>
   );
@@ -41,17 +42,17 @@ export default function Countdown({ targetDate }) {
 
   return (
     <div
-      className="mt-5 flex items-start gap-1 text-[clamp(2.35rem,5.2vw,5rem)] sm:gap-2"
+      className="mt-5 flex w-full items-start justify-center gap-0 text-[clamp(1.7rem,8vw,2.35rem)] sm:justify-start sm:gap-2 sm:text-[clamp(2.35rem,5.2vw,5rem)]"
       role="timer"
       aria-label={`${remaining.hours} hours, ${remaining.minutes} minutes, ${remaining.seconds} seconds, and ${remaining.milliseconds} milliseconds remaining`}
     >
-      <TimeUnit value={remaining.hours} label="Hours" />
+      <TimeUnit value={remaining.hours} label="Hours" shortLabel="HRS" />
       <span className="font-mono font-bold leading-none text-court-green">:</span>
-      <TimeUnit value={remaining.minutes} label="Minutes" />
+      <TimeUnit value={remaining.minutes} label="Minutes" shortLabel="MIN" />
       <span className="font-mono font-bold leading-none text-court-green">:</span>
-      <TimeUnit value={remaining.seconds} label="Seconds" />
+      <TimeUnit value={remaining.seconds} label="Seconds" shortLabel="SEC" />
       <span className="font-mono font-bold leading-none text-court-green">.</span>
-      <TimeUnit value={remaining.milliseconds} label="Milliseconds" digits={3} />
+      <TimeUnit value={remaining.milliseconds} label="Milliseconds" shortLabel="MS" digits={3} />
     </div>
   );
 }

@@ -28,7 +28,7 @@ function ConsoleLog({ log }) {
       : 'text-court-text/80';
 
   return (
-    <div className="grid grid-cols-[6.4rem_minmax(0,1fr)] gap-3 leading-[1.55]">
+    <div className="grid grid-cols-1 gap-0 leading-[1.55] sm:grid-cols-[6.4rem_minmax(0,1fr)] sm:gap-3">
       <span className="font-semibold text-court-cyan">[{log.time}]</span>
       <span className={`min-w-0 ${messageTone}`}>
         {log.message}

@@ -34,7 +34,9 @@ function App() {
         <ExecutionConsole />
       </section>
 
-      <SecurityNotice />
+      <section id="settings" className="scroll-mt-28">
+        <SecurityNotice />
+      </section>
     </AppShell>
   );
 }

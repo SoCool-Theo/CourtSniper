@@ -77,7 +77,7 @@ export default function Header({ onMenuToggle }) {
             className="mr-2 hidden h-[4.5rem] w-[4.5rem] shrink-0 object-contain sm:block"
           />
           <div className="min-w-0">
-            <div className="truncate font-display text-xl font-bold italic leading-none tracking-tactical sm:text-2xl">
+            <div className="truncate font-display text-lg font-bold italic leading-none tracking-tactical sm:text-2xl">
               <span className="text-white">COURT</span>{' '}
               <span className="neon-green-text">SNIPER</span>
             </div>
@@ -87,7 +87,7 @@ export default function Header({ onMenuToggle }) {
           </div>
         </div>
 
-        <div className="ml-auto hidden min-w-0 flex-1 items-stretch border-l border-court-line-soft/70 md:flex">
+        <div className="ml-auto hidden min-w-0 flex-1 items-stretch border-l border-court-line-soft/70 xl:flex">
           <StatusBlock label="System Time" dot={false}>
             <div>
               <div className="font-mono text-lg font-bold leading-none text-court-cyan xl:text-xl">

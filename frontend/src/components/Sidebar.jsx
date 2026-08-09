@@ -3,6 +3,7 @@ import {
   CalendarDays,
   LayoutGrid,
   Settings,
+  SlidersHorizontal,
   TerminalSquare,
   UserRound,
   X,
@@ -11,7 +12,7 @@ import { assetUrl } from '../assets';
 
 const navigation = [
   { name: 'Dashboard', icon: LayoutGrid, href: '#dashboard', section: 'dashboard' },
-  { name: 'Configuration', icon: Settings, href: '#configuration', section: 'configuration' },
+  { name: 'Configuration', icon: SlidersHorizontal, href: '#configuration', section: 'configuration' },
   { name: 'Session', icon: UserRound, href: '#session', section: 'session' },
   { name: 'Scheduler', icon: CalendarDays, href: '#scheduler', section: 'scheduler' },
   { name: 'Logs', icon: TerminalSquare, href: '#logs', section: 'logs' },
@@ -27,6 +28,14 @@ function useActiveSection() {
       .filter((section) => document.getElementById(section));
 
     const updateActiveSection = () => {
+      const isAtPageBottom = Math.ceil(window.scrollY + window.innerHeight)
+        >= document.documentElement.scrollHeight - 2;
+
+      if (isAtPageBottom && sectionIds.length > 0) {
+        setActiveSection(sectionIds[sectionIds.length - 1]);
+        return;
+      }
+
       let current = sectionIds[0] ?? 'dashboard';
       let largestVisibleArea = 0;
       const headerOffset = 112;

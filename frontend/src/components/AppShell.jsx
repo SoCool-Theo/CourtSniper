@@ -6,7 +6,7 @@ export default function AppShell({ children }) {
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-court-page text-court-text lg:pl-[10rem]">
+    <div className="min-h-screen overflow-x-hidden bg-court-page text-court-text lg:pl-[10rem]">
       <Sidebar
         isOpen={isNavigationOpen}
         onClose={() => setIsNavigationOpen(false)}

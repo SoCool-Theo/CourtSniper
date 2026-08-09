@@ -27,7 +27,7 @@ function getNextBookingDate(config) {
 
 function TargetGraphic() {
   return (
-    <div className="pointer-events-none absolute inset-0 hidden overflow-hidden lg:block" aria-hidden="true">
+    <div className="pointer-events-none absolute inset-0 hidden overflow-hidden opacity-70 sm:block lg:opacity-100" aria-hidden="true">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_48%,rgba(0,231,255,0.12),transparent_42%)]" />
       <img
         src={assetUrl('shuttlecock-target')}
@@ -166,7 +166,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="relative z-10 grid gap-3 border-t border-court-line-soft/70 bg-court-void/20 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(17rem,1.3fr)_minmax(11rem,0.8fr)] sm:items-center sm:p-5 lg:px-7">
+      <div className="relative z-10 grid gap-3 border-t border-court-line-soft/70 bg-court-void/20 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,1.3fr)_minmax(11rem,0.8fr)] lg:items-center lg:px-7">
         <div>
           <div className={`inline-flex items-center gap-2 rounded border px-2.5 py-1 text-[0.67rem] font-bold tracking-label ${
             isArmed
