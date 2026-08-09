@@ -4,7 +4,9 @@ import {
   ShieldCheck,
   UserRound,
 } from 'lucide-react';
+import { useState } from 'react';
 import SectionHeader from '../components/SectionHeader';
+import useCourtSniper from '../context/useCourtSniper';
 
 const sessionDetails = [
   { label: 'Last Refresh', value: 'May 22, 2025 10:15 PM' },
@@ -13,6 +15,48 @@ const sessionDetails = [
 ];
 
 export default function Session() {
+  const {
+    connectionStatus,
+    isLoadingConfig,
+    isLaunchingSetup,
+    refreshConfiguration,
+    launchSetupSession,
+  } = useCourtSniper();
+  const [feedback, setFeedback] = useState('');
+  const [feedbackTone, setFeedbackTone] = useState('success');
+
+  const handleRefresh = async () => {
+    setFeedback('');
+
+    try {
+      await refreshConfiguration();
+      setFeedbackTone('success');
+      setFeedback('Configuration and API connection refreshed.');
+    } catch {
+      setFeedbackTone('error');
+      setFeedback('Unable to refresh the API connection.');
+    }
+  };
+
+  const handleOpenLogin = async () => {
+    setFeedback('');
+
+    try {
+      const result = await launchSetupSession();
+      setFeedbackTone('success');
+      setFeedback(result?.message || 'Login browser launch requested.');
+    } catch {
+      setFeedbackTone('error');
+      setFeedback('Unable to launch the login browser.');
+    }
+  };
+
+  const connectionLabel = connectionStatus === 'online'
+    ? 'Backend Connected'
+    : connectionStatus === 'offline'
+      ? 'Backend Offline'
+      : 'Checking Backend';
+
   return (
     <div className="tactical-panel">
       <SectionHeader icon={UserRound} title="Session" />
@@ -24,8 +68,14 @@ export default function Session() {
               <ShieldCheck aria-hidden="true" className="h-9 w-9 fill-court-green/15" />
             </div>
             <div>
-              <div className="text-xs font-bold uppercase tracking-tactical text-court-green">Session Valid</div>
-              <p className="mt-1.5 text-[0.68rem] font-medium text-court-text/75">Authenticated and ready to go.</p>
+              <div className={`text-xs font-bold uppercase tracking-tactical ${
+                connectionStatus === 'offline' ? 'text-court-danger' : 'text-court-green'
+              }`}>
+                {connectionLabel}
+              </div>
+              <p className="mt-1.5 text-[0.68rem] font-medium text-court-text/75">
+                Session validity requires a dedicated backend check.
+              </p>
             </div>
           </div>
         </div>
@@ -42,14 +92,31 @@ export default function Session() {
         </dl>
 
         <div className="grid gap-3 lg:pl-6">
-          <button type="button" className="tactical-button min-h-10 px-4">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isLoadingConfig}
+            className="tactical-button min-h-10 px-4 disabled:cursor-not-allowed disabled:opacity-50"
+          >
             <RefreshCw aria-hidden="true" className="h-4 w-4" />
-            Refresh Session
+            {isLoadingConfig ? 'Refreshing...' : 'Refresh Connection'}
           </button>
-          <button type="button" className="tactical-button min-h-10 px-4">
+          <button
+            type="button"
+            onClick={handleOpenLogin}
+            disabled={isLaunchingSetup}
+            className="tactical-button min-h-10 px-4 disabled:cursor-not-allowed disabled:opacity-50"
+          >
             <AppWindow aria-hidden="true" className="h-4 w-4" />
-            Open Login Browser
+            {isLaunchingSetup ? 'Launching Browser...' : 'Open Login Browser'}
           </button>
+          {feedback && (
+            <p className={`text-center text-[0.68rem] font-semibold ${
+              feedbackTone === 'success' ? 'text-court-green' : 'text-court-danger'
+            }`}>
+              {feedback}
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import SectionHeader from '../components/SectionHeader';
+import useCourtSniper from '../context/useCourtSniper';
 
 const hours = Array.from({ length: 24 }, (_, index) => index.toString().padStart(2, '0'));
 const minutesAndSeconds = Array.from({ length: 60 }, (_, index) => index.toString().padStart(2, '0'));
@@ -40,12 +41,45 @@ function TimeSelect({ label, value, options, onChange }) {
 }
 
 export default function Configuration() {
-  const [url, setUrl] = useState('https://www.messenger.com/t/1234567890123456');
-  const [message, setMessage] = useState('Hi, I would like to book badminton court\nat 4 - 5pm. Thank you!');
+  const {
+    config,
+    apiError,
+    isLoadingConfig,
+    isSavingConfig,
+    updateConfiguration,
+  } = useCourtSniper();
+  const [draft, setDraft] = useState({});
   const [date, setDate] = useState(getDefaultDate);
-  const [hour, setHour] = useState('09');
-  const [minute, setMinute] = useState('00');
-  const [second, setSecond] = useState('00');
+  const [saveFeedback, setSaveFeedback] = useState('');
+
+  const url = draft.TARGET_URL ?? config.TARGET_URL ?? '';
+  const message = draft.BOOKING_MESSAGE ?? config.BOOKING_MESSAGE ?? '';
+  const hour = String(draft.TARGET_HOUR ?? config.TARGET_HOUR ?? '09').padStart(2, '0');
+  const minute = String(draft.TARGET_MINUTE ?? config.TARGET_MINUTE ?? '00').padStart(2, '0');
+  const second = String(draft.TARGET_SECOND ?? config.TARGET_SECOND ?? '00').padStart(2, '0');
+
+  const updateDraft = (key, value) => {
+    setDraft((current) => ({ ...current, [key]: value }));
+    setSaveFeedback('');
+  };
+
+  const handleSave = async () => {
+    setSaveFeedback('');
+
+    try {
+      await updateConfiguration({
+        TARGET_URL: url,
+        BOOKING_MESSAGE: message,
+        TARGET_HOUR: hour,
+        TARGET_MINUTE: minute,
+        TARGET_SECOND: second,
+      });
+      setDraft({});
+      setSaveFeedback('Configuration saved successfully.');
+    } catch {
+      setSaveFeedback('Unable to save configuration.');
+    }
+  };
 
   return (
     <div className="tactical-panel">
@@ -61,7 +95,8 @@ export default function Configuration() {
                   id="target-url"
                   type="url"
                   value={url}
-                  onChange={(event) => setUrl(event.target.value)}
+                  onChange={(event) => updateDraft('TARGET_URL', event.target.value)}
+                  disabled={isLoadingConfig || isSavingConfig}
                   className="tactical-input h-10 px-3 pr-10 text-sm"
                   spellCheck="false"
                 />
@@ -75,7 +110,8 @@ export default function Configuration() {
                 <textarea
                   id="booking-message"
                   value={message}
-                  onChange={(event) => setMessage(event.target.value)}
+                  onChange={(event) => updateDraft('BOOKING_MESSAGE', event.target.value)}
+                  disabled={isLoadingConfig || isSavingConfig}
                   maxLength={1000}
                   rows={4}
                   className="tactical-input min-h-28 resize-none px-3 py-3 pb-7 font-mono text-xs leading-relaxed"
@@ -89,7 +125,9 @@ export default function Configuration() {
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="target-date" className="tactical-label mb-2 block">Target Date</label>
+              <label htmlFor="target-date" className="tactical-label mb-2 block">
+                Target Date <span className="text-court-warning/80">(local display only)</span>
+              </label>
               <div className="relative">
                 <CalendarDays aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-court-text/80" />
                 <input
@@ -105,20 +143,33 @@ export default function Configuration() {
             <div>
               <span className="tactical-label mb-2 block">Target Time (24H)</span>
               <div className="flex gap-3">
-                <TimeSelect label="HH" value={hour} options={hours} onChange={setHour} />
-                <TimeSelect label="MM" value={minute} options={minutesAndSeconds} onChange={setMinute} />
-                <TimeSelect label="SS" value={second} options={minutesAndSeconds} onChange={setSecond} />
+                <TimeSelect label="HH" value={hour} options={hours} onChange={(value) => updateDraft('TARGET_HOUR', value)} />
+                <TimeSelect label="MM" value={minute} options={minutesAndSeconds} onChange={(value) => updateDraft('TARGET_MINUTE', value)} />
+                <TimeSelect label="SS" value={second} options={minutesAndSeconds} onChange={(value) => updateDraft('TARGET_SECOND', value)} />
               </div>
             </div>
           </div>
         </div>
 
         <div className="flex justify-center pt-3">
-          <button type="button" className="tactical-button min-h-10 w-full max-w-[24rem] px-6">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isLoadingConfig || isSavingConfig}
+            className="tactical-button min-h-10 w-full max-w-[24rem] px-6 disabled:cursor-not-allowed disabled:opacity-50"
+          >
             <Save aria-hidden="true" className="h-4 w-4" />
-            Save Configuration
+            {isSavingConfig ? 'Saving Configuration...' : 'Save Configuration'}
           </button>
         </div>
+
+        {(saveFeedback || apiError) && (
+          <p className={`pt-2 text-center text-xs font-semibold ${
+            saveFeedback.startsWith('Configuration') ? 'text-court-green' : 'text-court-danger'
+          }`}>
+            {saveFeedback || apiError}
+          </p>
+        )}
       </div>
     </div>
   );

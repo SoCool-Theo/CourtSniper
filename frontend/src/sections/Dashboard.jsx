@@ -9,11 +9,17 @@ import {
 } from 'lucide-react';
 import { assetUrl } from '../assets';
 import Countdown from '../components/Countdown';
+import useCourtSniper from '../context/useCourtSniper';
 
-function getNextBookingDate() {
+function getNextBookingDate(config) {
   const now = new Date();
   const target = new Date(now);
-  target.setHours(9, 0, 0, 0);
+  target.setHours(
+    Number(config.TARGET_HOUR ?? 9),
+    Number(config.TARGET_MINUTE ?? 0),
+    Number(config.TARGET_SECOND ?? 0),
+    0,
+  );
 
   if (target <= now) target.setDate(target.getDate() + 1);
   return target;
@@ -34,8 +40,27 @@ function TargetGraphic() {
 }
 
 export default function Dashboard() {
-  const [isArmed, setIsArmed] = useState(true);
-  const targetDate = useMemo(() => getNextBookingDate(), []);
+  const {
+    config,
+    apiError,
+    isLoadingConfig,
+    isSavingConfig,
+    updateConfiguration,
+  } = useCourtSniper();
+  const [statusFeedback, setStatusFeedback] = useState('');
+  const isArmed = config.STATUS === 'ARMED';
+  const targetDate = useMemo(() => getNextBookingDate(config), [config]);
+
+  const updateArmedStatus = async (nextStatus) => {
+    setStatusFeedback('');
+
+    try {
+      await updateConfiguration({ STATUS: nextStatus });
+      setStatusFeedback(`Execution status changed to ${nextStatus}.`);
+    } catch {
+      setStatusFeedback('Unable to update execution status.');
+    }
+  };
 
   const formattedDate = targetDate.toLocaleDateString('en-US', {
     month: 'short',
@@ -74,7 +99,8 @@ export default function Dashboard() {
               <button
                 type="button"
                 aria-pressed={isArmed}
-                onClick={() => setIsArmed(true)}
+                onClick={() => updateArmedStatus('ARMED')}
+                disabled={isLoadingConfig || isSavingConfig}
                 className={`flex min-h-10 items-center justify-center gap-2 rounded-full text-sm font-bold tracking-wide transition-all ${
                   isArmed
                     ? 'border border-court-green bg-court-green/15 text-court-green shadow-green-strong'
@@ -87,7 +113,8 @@ export default function Dashboard() {
               <button
                 type="button"
                 aria-pressed={!isArmed}
-                onClick={() => setIsArmed(false)}
+                onClick={() => updateArmedStatus('DISARMED')}
+                disabled={isLoadingConfig || isSavingConfig}
                 className={`min-h-10 rounded-full text-sm font-bold tracking-wide transition-all ${
                   !isArmed
                     ? 'border border-court-danger bg-court-danger/10 text-court-danger shadow-[0_0_18px_rgba(255,55,72,0.24)]'
@@ -103,6 +130,13 @@ export default function Dashboard() {
               <strong className="font-mono text-court-green">STATUS = ARMED</strong>{' '}
               (from <span className="font-mono">.env</span>).
             </p>
+            {(statusFeedback || apiError) && (
+              <p className={`mt-2 max-w-[31rem] text-[0.68rem] font-semibold ${
+                statusFeedback.startsWith('Execution') ? 'text-court-green' : 'text-court-danger'
+              }`}>
+                {statusFeedback || apiError}
+              </p>
+            )}
           </div>
         </div>
 
@@ -149,7 +183,12 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <button type="button" className="tactical-button tactical-button--primary min-h-[4rem] px-5">
+        <button
+          type="button"
+          disabled
+          title="Requires a POST /api/run-sniper backend endpoint"
+          className="tactical-button tactical-button--primary min-h-[4rem] cursor-not-allowed px-5 opacity-55"
+        >
           <Crosshair aria-hidden="true" className="h-8 w-8" />
           <span className="text-left">
             <span className="block text-lg leading-none">Start Sniper</span>
@@ -158,7 +197,12 @@ export default function Dashboard() {
           <Send aria-hidden="true" className="h-4 w-4 opacity-70" />
         </button>
 
-        <button type="button" className="tactical-button min-h-[3.3rem] px-5">
+        <button
+          type="button"
+          disabled
+          title="Requires a backend test-run endpoint"
+          className="tactical-button min-h-[3.3rem] cursor-not-allowed px-5 opacity-55"
+        >
           <FlaskConical aria-hidden="true" className="h-5 w-5" />
           Test Run
         </button>

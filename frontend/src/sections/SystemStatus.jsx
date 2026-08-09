@@ -7,16 +7,23 @@ import {
 } from 'lucide-react';
 import SectionHeader from '../components/SectionHeader';
 import StatusCard from '../components/StatusCard';
-
-const systemStatuses = [
-  { icon: Wifi, label: 'Internet Connection', value: 'Online' },
-  { icon: PlugZap, label: 'System Power', value: 'AC Power' },
-  { icon: Globe2, label: 'Browser Status', value: 'Ready' },
-  { icon: ShieldCheck, label: 'Session Status', value: 'Valid' },
-  { icon: HardDrive, label: 'Disk Space', value: '128 GB Free' },
-];
+import useCourtSniper from '../context/useCourtSniper';
 
 export default function SystemStatus() {
+  const { connectionStatus } = useCourtSniper();
+  const apiStatus = connectionStatus === 'online'
+    ? { value: 'Online', tone: 'green' }
+    : connectionStatus === 'offline'
+      ? { value: 'Offline', tone: 'danger' }
+      : { value: 'Checking', tone: 'warning' };
+  const systemStatuses = [
+    { icon: Wifi, label: 'Backend Connection', ...apiStatus },
+    { icon: PlugZap, label: 'System Power', value: 'Not Reported', tone: 'cyan' },
+    { icon: Globe2, label: 'Browser Status', value: 'Not Reported', tone: 'cyan' },
+    { icon: ShieldCheck, label: 'Session Status', value: 'Not Reported', tone: 'cyan' },
+    { icon: HardDrive, label: 'Disk Space', value: 'Not Reported', tone: 'cyan' },
+  ];
+
   return (
     <div className="tactical-panel">
       <SectionHeader icon={PlugZap} title="System Status" />

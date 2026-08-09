@@ -1,53 +1,53 @@
-// The base URL for your local FastAPI backend
-const BASE_URL = 'http://127.0.0.1:8000/api';
+const DEFAULT_BASE_URL = 'http://127.0.0.1:8000/api';
 
-/**
- * Fetches the current configuration variables from the .env file.
- */
-export const fetchConfig = async () => {
-  try {
-    const response = await fetch(`${BASE_URL}/config`);
-    if (!response.ok) throw new Error('Network response was not ok');
-    return await response.json();
-  } catch (error) {
-    console.error("Failed to fetch config:", error);
-    return null;
-  }
-};
+export const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL
+).replace(/\/$/, '');
 
-/**
- * Sends updated configuration variables to overwrite the .env file.
- * @param {Object} configData - The JSON payload containing URL, message, and time.
- */
-export const saveConfig = async (configData) => {
-  try {
-    const response = await fetch(`${BASE_URL}/config`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(configData),
-    });
-    if (!response.ok) throw new Error('Network response was not ok');
-    return await response.json();
-  } catch (error) {
-    console.error("Failed to save config:", error);
-    return null;
-  }
-};
+async function apiRequest(path, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      Accept: 'application/json',
+      ...options.headers,
+    },
+  });
 
-/**
- * Triggers the background subprocess to launch the manual Facebook login script.
- */
-export const triggerSetupSession = async () => {
-  try {
-    const response = await fetch(`${BASE_URL}/run-setup`, {
-      method: 'POST',
-    });
-    if (!response.ok) throw new Error('Network response was not ok');
-    return await response.json();
-  } catch (error) {
-    console.error("Failed to trigger setup session:", error);
-    return null;
+  const contentType = response.headers.get('content-type') || '';
+  const payload = contentType.includes('application/json')
+    ? await response.json()
+    : await response.text();
+
+  if (!response.ok) {
+    const message = typeof payload === 'object'
+      ? payload.error || payload.detail || payload.message
+      : payload;
+    throw new Error(message || `Request failed with status ${response.status}`);
   }
-};
+
+  if (payload && typeof payload === 'object' && payload.error) {
+    throw new Error(payload.error);
+  }
+
+  return payload;
+}
+
+export function fetchBackendStatus() {
+  return apiRequest('/status');
+}
+
+export function fetchConfig() {
+  return apiRequest('/config');
+}
+
+export function saveConfig(configData) {
+  return apiRequest('/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(configData),
+  });
+}
+
+export function triggerSetupSession() {
+  return apiRequest('/run-setup', { method: 'POST' });
+}

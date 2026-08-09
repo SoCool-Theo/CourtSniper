@@ -6,8 +6,9 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { assetUrl } from '../assets';
+import useCourtSniper from '../context/useCourtSniper';
 
-function StatusBlock({ icon: Icon, label, children, dot = true }) {
+function StatusBlock({ icon: Icon, label, children, dot = true, dotClassName = 'bg-court-green shadow-[0_0_9px_rgba(99,255,0,0.85)]' }) {
   return (
     <div className="flex min-h-[4.25rem] min-w-0 flex-1 items-center border-l border-court-line-soft/70 px-4 first:border-l-0 xl:px-5">
       <div className="min-w-0">
@@ -16,7 +17,7 @@ function StatusBlock({ icon: Icon, label, children, dot = true }) {
           <span className="truncate">{label}</span>
         </div>
         <div className="flex items-center gap-2 whitespace-nowrap text-sm font-semibold tracking-wide text-court-text">
-          {dot && <span className="status-dot" aria-hidden="true" />}
+          {dot && <span className={`h-2 w-2 shrink-0 rounded-full ${dotClassName}`} aria-hidden="true" />}
           {children}
         </div>
       </div>
@@ -26,6 +27,7 @@ function StatusBlock({ icon: Icon, label, children, dot = true }) {
 
 export default function Header({ onMenuToggle }) {
   const [time, setTime] = useState(() => new Date());
+  const { connectionStatus } = useCourtSniper();
 
   useEffect(() => {
     const timer = window.setInterval(() => setTime(new Date()), 40);
@@ -45,6 +47,16 @@ export default function Header({ onMenuToggle }) {
     day: 'numeric',
     year: 'numeric',
   });
+  const connectionLabel = connectionStatus === 'online'
+    ? 'API ONLINE'
+    : connectionStatus === 'offline'
+      ? 'API OFFLINE'
+      : 'CHECKING';
+  const connectionDot = connectionStatus === 'online'
+    ? 'bg-court-green shadow-[0_0_9px_rgba(99,255,0,0.85)]'
+    : connectionStatus === 'offline'
+      ? 'bg-court-danger shadow-[0_0_9px_rgba(255,55,72,0.75)]'
+      : 'bg-court-warning shadow-[0_0_9px_rgba(255,213,31,0.7)]';
 
   return (
     <header className="sticky top-0 z-30 px-3 pt-3 sm:px-4 lg:px-3">
@@ -87,12 +99,16 @@ export default function Header({ onMenuToggle }) {
             </div>
           </StatusBlock>
 
-          <StatusBlock icon={ShieldCheck} label="Session Status">
-            AUTHENTICATED
+          <StatusBlock icon={ShieldCheck} label="Backend Status" dotClassName={connectionDot}>
+            {connectionLabel}
           </StatusBlock>
 
-          <StatusBlock icon={CalendarClock} label="Scheduler Status">
-            READY
+          <StatusBlock
+            icon={CalendarClock}
+            label="Scheduler Status"
+            dotClassName="bg-court-warning shadow-[0_0_9px_rgba(255,213,31,0.7)]"
+          >
+            API REQUIRED
           </StatusBlock>
         </div>
 
