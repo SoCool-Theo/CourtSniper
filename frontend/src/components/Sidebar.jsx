@@ -1,63 +1,151 @@
+import { useEffect, useState } from 'react';
 import {
-  LayoutDashboard,
+  CalendarDays,
+  Crosshair,
+  LayoutGrid,
   Settings,
-  User,
-  CalendarClock,
-  Terminal,
-  Target
+  TerminalSquare,
+  UserRound,
+  X,
 } from 'lucide-react';
 
-export default function Sidebar() {
-  const navItems = [
-    { name: 'Dashboard', icon: LayoutDashboard, href: '#dashboard', active: true },
-    { name: 'Configuration', icon: Settings, href: '#configuration' },
-    { name: 'Session', icon: User, href: '#session' },
-    { name: 'Scheduler', icon: CalendarClock, href: '#scheduler' },
-    { name: 'Logs', icon: Terminal, href: '#logs' },
-    { name: 'Settings', icon: Settings, href: '#settings' },
-  ];
+const navigation = [
+  { name: 'Dashboard', icon: LayoutGrid, href: '#dashboard', section: 'dashboard' },
+  { name: 'Configuration', icon: Settings, href: '#configuration', section: 'configuration' },
+  { name: 'Session', icon: UserRound, href: '#session', section: 'session' },
+  { name: 'Scheduler', icon: CalendarDays, href: '#scheduler', section: 'scheduler' },
+  { name: 'Logs', icon: TerminalSquare, href: '#logs', section: 'logs' },
+  { name: 'Settings', icon: Settings, href: '#settings', section: 'settings' },
+];
+
+function useActiveSection() {
+  const [activeSection, setActiveSection] = useState('dashboard');
+
+  useEffect(() => {
+    const sectionIds = navigation
+      .map((item) => item.section)
+      .filter((section) => document.getElementById(section));
+
+    const updateActiveSection = () => {
+      const marker = window.scrollY + Math.min(180, window.innerHeight * 0.28);
+      let current = sectionIds[0] ?? 'dashboard';
+
+      sectionIds.forEach((id) => {
+        const element = document.getElementById(id);
+        if (element && element.offsetTop <= marker) current = id;
+      });
+
+      setActiveSection(current);
+    };
+
+    updateActiveSection();
+    window.addEventListener('scroll', updateActiveSection, { passive: true });
+    window.addEventListener('resize', updateActiveSection);
+
+    return () => {
+      window.removeEventListener('scroll', updateActiveSection);
+      window.removeEventListener('resize', updateActiveSection);
+    };
+  }, []);
+
+  return activeSection;
+}
+
+export default function Sidebar({ isOpen, onClose }) {
+  const activeSection = useActiveSection();
 
   return (
-    <aside className="w-64 h-screen bg-[#0a0f1c] border-r border-slate-800 flex flex-col justify-between hidden lg:flex sticky top-0 shrink-0">
+    <>
+      <button
+        type="button"
+        aria-label="Close navigation overlay"
+        onClick={onClose}
+        className={`fixed inset-0 z-40 bg-court-void/80 backdrop-blur-sm transition-opacity lg:hidden ${
+          isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
 
-      {/* 1. Logo Section */}
-      <div className="p-8 border-b border-slate-800 flex items-center space-x-3">
-        <Target className="text-[#00FF66] w-10 h-10 shrink-0" />
-        <div className="flex flex-col">
-          <span className="text-white font-black text-2xl italic tracking-widest leading-none">COURT</span>
-          <span className="text-[#00FF66] font-black text-xl italic tracking-widest leading-none">SNIPER</span>
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-[7.5rem] flex-col border-r border-court-line bg-court-panel/98 shadow-panel transition-transform duration-300 lg:translate-x-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        aria-label="Primary navigation"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded border border-court-line text-court-cyan lg:hidden"
+          aria-label="Close navigation"
+        >
+          <X aria-hidden="true" className="h-4 w-4" />
+        </button>
+
+        <a
+          href="#dashboard"
+          onClick={onClose}
+          className="flex h-[9.8rem] shrink-0 flex-col items-center justify-center border-b border-court-line-soft/80 px-3 text-center"
+          aria-label="CourtSniper dashboard"
+        >
+          <div className="relative mb-3 flex h-[4.3rem] w-[4.3rem] items-center justify-center rounded-full border border-court-cyan text-court-cyan shadow-cyan">
+            <span className="absolute -left-2 top-1/2 h-px w-4 bg-court-cyan" />
+            <span className="absolute -right-2 top-1/2 h-px w-4 bg-court-cyan" />
+            <span className="absolute -top-2 left-1/2 h-4 w-px bg-court-cyan" />
+            <span className="absolute -bottom-2 left-1/2 h-4 w-px bg-court-cyan" />
+            <Crosshair aria-hidden="true" className="h-11 w-11" strokeWidth={1.2} />
+          </div>
+          <span className="font-display text-[1.05rem] font-bold italic leading-[0.95] tracking-tactical text-white">
+            COURT
+          </span>
+          <span className="neon-green-text mt-1 font-display text-[1.05rem] font-bold italic leading-[0.95] tracking-tactical">
+            SNIPER
+          </span>
+        </a>
+
+        <nav className="flex-1 py-2">
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeSection === item.section;
+
+            return (
+              <a
+                key={item.name}
+                href={item.href}
+                onClick={onClose}
+                aria-current={isActive ? 'page' : undefined}
+                className={`group relative flex h-[3.55rem] items-center gap-2.5 px-3 text-[0.72rem] font-semibold transition-colors ${
+                  isActive
+                    ? 'bg-court-green/[0.08] text-white'
+                    : 'text-court-text/80 hover:bg-court-cyan/[0.05] hover:text-white'
+                }`}
+              >
+                <span
+                  className={`absolute inset-y-0 left-0 w-[3px] transition-all ${
+                    isActive
+                      ? 'bg-court-green shadow-[0_0_12px_rgba(99,255,0,0.9)]'
+                      : 'bg-transparent group-hover:bg-court-cyan/50'
+                  }`}
+                />
+                <Icon
+                  aria-hidden="true"
+                  className={`h-[1.15rem] w-[1.15rem] shrink-0 ${
+                    isActive ? 'text-court-cyan' : 'text-court-text'
+                  }`}
+                  strokeWidth={1.7}
+                />
+                <span className="truncate">{item.name}</span>
+              </a>
+            );
+          })}
+        </nav>
+
+        <div className="shrink-0 border-t border-court-line-soft/80 px-3 py-4">
+          <div className="mb-2 flex items-center gap-2 text-[0.65rem] font-semibold text-court-text">
+            <span className="status-dot h-2 w-2 animate-status-pulse" />
+            <span>All systems go.</span>
+          </div>
+          <p className="text-[0.62rem] font-medium text-court-muted">Good luck! 🎯</p>
         </div>
-      </div>
-
-      {/* 2. Anchor Navigation Links */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto mt-4">
-        {navItems.map((item) => (
-          <a
-            key={item.name}
-            href={item.href}
-            className={`flex items-center space-x-3 px-4 py-3 rounded-md transition-all duration-200 group ${
-              item.active 
-                ? 'bg-slate-800/50 text-[#00FF66] border-l-2 border-[#00FF66]' 
-                : 'text-slate-400 hover:bg-slate-800/30 hover:text-white border-l-2 border-transparent'
-            }`}
-          >
-            <item.icon className={`w-5 h-5 ${item.active ? 'text-[#00FF66]' : 'text-slate-500 group-hover:text-cyan-400'}`} />
-            <span className="font-semibold text-sm tracking-wide">{item.name}</span>
-          </a>
-        ))}
-      </nav>
-
-      {/* 3. Bottom Status Footer */}
-      <div className="p-6 border-t border-slate-800">
-        <div className="flex items-center space-x-2 mb-2">
-          <div className="w-2.5 h-2.5 bg-[#00FF66] rounded-full animate-pulse shadow-[0_0_8px_#00FF66]"></div>
-          <span className="text-slate-300 text-xs font-semibold">All systems go.</span>
-        </div>
-        <div className="text-slate-500 text-xs flex items-center space-x-2">
-          <span>Good luck! 🎯</span>
-        </div>
-      </div>
-
-    </aside>
+      </aside>
+    </>
   );
 }

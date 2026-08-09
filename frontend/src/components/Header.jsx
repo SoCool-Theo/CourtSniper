@@ -1,78 +1,108 @@
-import { useState, useEffect } from 'react';
-import { Settings } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
+  CalendarClock,
+  Crosshair,
+  Menu,
+  Settings,
+  ShieldCheck,
+} from 'lucide-react';
 
-export default function Header() {
-  const [time, setTime] = useState(new Date());
+function StatusBlock({ icon: Icon, label, children, dot = true }) {
+  return (
+    <div className="flex min-h-[4.25rem] min-w-0 flex-1 items-center border-l border-court-line-soft/70 px-4 first:border-l-0 xl:px-5">
+      <div className="min-w-0">
+        <div className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-label text-court-cyan">
+          {Icon && <Icon aria-hidden="true" className="h-3.5 w-3.5" />}
+          <span className="truncate">{label}</span>
+        </div>
+        <div className="flex items-center gap-2 whitespace-nowrap text-sm font-semibold tracking-wide text-court-text">
+          {dot && <span className="status-dot" aria-hidden="true" />}
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-  // This hook creates a highly responsive interval to update the clock every 10 milliseconds
+export default function Header({ onMenuToggle }) {
+  const [time, setTime] = useState(() => new Date());
+
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 10);
-    return () => clearInterval(timer);
+    const timer = window.setInterval(() => setTime(new Date()), 40);
+    return () => window.clearInterval(timer);
   }, []);
 
-  // Format helpers for our tactical digital clock
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  };
-
-  const formatMs = (date) => {
-    return date.getMilliseconds().toString().padStart(3, '0');
-  };
-
-  const formatDate = (date) => {
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  };
+  const formattedTime = time.toLocaleTimeString('en-US', {
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const milliseconds = time.getMilliseconds().toString().padStart(3, '0');
+  const formattedDate = time.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 
   return (
-    <header className="bg-[#0a0f1c] border-b border-slate-800 p-4 lg:px-8 flex flex-col lg:flex-row justify-between items-center shrink-0">
-
-      {/* 1. Left Tagline */}
-      <div className="hidden lg:block text-slate-400 text-sm font-medium tracking-wide">
-        Book the court. <span className="text-[#00FF66]">Exactly on time.</span>
-      </div>
-
-      {/* 2. Right Status & Clock Container */}
-      <div className="flex items-center space-x-6 lg:space-x-8 w-full lg:w-auto justify-between lg:justify-end">
-
-        {/* System Time */}
-        <div className="flex flex-col items-start lg:items-end min-w-[140px]">
-          <span className="text-slate-500 text-[10px] font-bold tracking-widest uppercase mb-1">System Time</span>
-          <div className="flex items-baseline space-x-1">
-            <span className="text-[#00E5FF] font-mono text-xl lg:text-2xl font-bold tracking-wider">{formatTime(time)}</span>
-            <span className="text-[#00E5FF]/70 font-mono text-xs lg:text-sm">.{formatMs(time)}</span>
-          </div>
-          <span className="text-slate-400 text-[10px] lg:text-xs mt-0.5">{formatDate(time)}</span>
-        </div>
-
-        {/* Vertical Divider */}
-        <div className="hidden sm:block h-10 w-px bg-slate-800"></div>
-
-        {/* Session Status */}
-        <div className="flex flex-col">
-          <span className="text-slate-500 text-[10px] font-bold tracking-widest uppercase mb-1">Session Status</span>
-          <div className="flex items-center space-x-2 mt-1">
-            <div className="w-2 h-2 bg-[#00FF66] rounded-full shadow-[0_0_8px_#00FF66]"></div>
-            <span className="text-slate-200 text-xs font-bold tracking-wider">AUTHENTICATED</span>
-          </div>
-        </div>
-
-        {/* Vertical Divider */}
-        <div className="hidden sm:block h-10 w-px bg-slate-800"></div>
-
-        {/* Scheduler Status */}
-        <div className="hidden sm:flex flex-col">
-          <span className="text-slate-500 text-[10px] font-bold tracking-widest uppercase mb-1">Scheduler Status</span>
-          <div className="flex items-center space-x-2 mt-1">
-            <div className="w-2 h-2 bg-[#00FF66] rounded-full shadow-[0_0_8px_#00FF66]"></div>
-            <span className="text-slate-200 text-xs font-bold tracking-wider">READY</span>
-          </div>
-        </div>
-
-        {/* Settings Button */}
-        <button className="p-2.5 border border-slate-700 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 hover:border-slate-500 transition-all ml-2">
-          <Settings className="w-4 h-4 lg:w-5 lg:h-5" />
+    <header className="sticky top-0 z-30 px-3 pt-3 sm:px-4 lg:px-3">
+      <div className="tactical-panel mx-auto flex min-h-[5.5rem] w-full max-w-[96rem] items-stretch overflow-visible bg-court-panel/95 backdrop-blur-xl">
+        <button
+          type="button"
+          onClick={onMenuToggle}
+          className="m-3 inline-flex w-11 shrink-0 items-center justify-center rounded border border-court-line text-court-cyan transition hover:bg-court-cyan/10 lg:hidden"
+          aria-label="Open navigation"
+        >
+          <Menu aria-hidden="true" className="h-5 w-5" />
         </button>
 
+        <div className="flex min-w-0 flex-1 items-center px-3 sm:px-5 lg:w-[20rem] lg:flex-none lg:px-7">
+          <div className="mr-3 hidden h-12 w-12 shrink-0 items-center justify-center rounded-full border border-court-cyan/70 text-court-cyan shadow-cyan sm:flex">
+            <Crosshair aria-hidden="true" className="h-8 w-8" strokeWidth={1.4} />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate font-display text-xl font-bold italic leading-none tracking-tactical sm:text-2xl">
+              <span className="text-white">COURT</span>{' '}
+              <span className="neon-green-text">SNIPER</span>
+            </div>
+            <p className="mt-2 hidden truncate text-xs font-medium text-court-text/90 sm:block">
+              Book the court. Exactly on time.
+            </p>
+          </div>
+        </div>
+
+        <div className="ml-auto hidden min-w-0 flex-1 items-stretch border-l border-court-line-soft/70 md:flex">
+          <StatusBlock label="System Time" dot={false}>
+            <div>
+              <div className="font-mono text-lg font-bold leading-none text-court-cyan xl:text-xl">
+                {formattedTime}<span className="text-xs">.{milliseconds}</span>
+              </div>
+              <div className="mt-1.5 text-[0.65rem] font-medium text-court-muted">
+                {formattedDate}
+              </div>
+            </div>
+          </StatusBlock>
+
+          <StatusBlock icon={ShieldCheck} label="Session Status">
+            AUTHENTICATED
+          </StatusBlock>
+
+          <StatusBlock icon={CalendarClock} label="Scheduler Status">
+            READY
+          </StatusBlock>
+        </div>
+
+        <div className="ml-auto flex items-center border-l border-court-line-soft/70 px-3 md:ml-0">
+          <button
+            type="button"
+            className="inline-flex h-11 w-11 items-center justify-center rounded border border-court-line text-court-text transition hover:border-court-cyan hover:bg-court-cyan/10 hover:text-court-cyan hover:shadow-cyan"
+            aria-label="Open settings"
+          >
+            <Settings aria-hidden="true" className="h-5 w-5" />
+          </button>
+        </div>
       </div>
     </header>
   );
