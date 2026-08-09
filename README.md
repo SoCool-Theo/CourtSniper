@@ -1,14 +1,14 @@
 # CourtSniper 2.0
 
-CourtSniper is an automated Python script designed to secure time-critical badminton court bookings via Facebook Messenger. It separates manual login authentication from high-speed execution to avoid triggering Meta's automated anti-bot alarms. 
+CourtSniper is a local automation application designed to secure time-critical badminton court bookings through Facebook Messenger. It combines a Python automation service with a responsive React dashboard and separates manual login authentication from high-speed execution.
 
-The script uses a persistent local browser session to bypass login screens and Two-Factor Authentication (2FA) prompts on booking day, combined with a high-precision microsecond countdown loop that dispatches your message the exact second registration opens.
+The automation engine uses a persistent local browser session to avoid repeating login and Two-Factor Authentication (2FA) prompts on booking day. A precision countdown coordinates message dispatch with the configured booking time.
 
 ---
 
 ## Architecture & Directory Structure
 
-The project uses a monorepo setup (`backend/` and `frontend/`). The React frontend provides a Tailscale-accessible Web UI, while the Python backend handles the heavy lifting.
+The project uses a monorepo setup (`backend/` and `frontend/`). The React frontend provides the control dashboard, while the FastAPI and Python backend manage configuration, authentication setup, and browser automation.
 
 ```text
 CourtSniper/
@@ -28,6 +28,7 @@ CourtSniper/
 │
 ├── frontend/                    # React / Vite Web Dashboard
 │   ├── src/                     # React components, sections, and API services
+│   ├── public/                  # CourtSniper shuttlecock image assets
 │   ├── index.html               # Main HTML entry page
 │   ├── package.json             # Node.js dependencies
 │   └── vite.config.js           # Vite server configuration
@@ -37,11 +38,27 @@ CourtSniper/
 
 ```
 
-* **`backend/src/` Directory**: Contains the core logic.
-* **`config.py`**: Isolates and stores your target configuration variables so you never have to edit core automation logic.
-* **`setup_session.py`**: Handles the manual authentication phase to generate and cache your active browser profile.
-* **`sniper.py`**: The active precision execution engine that runs on booking day to snipe the court.
-* **CRITICAL SECURITY NOTICE**: The `user_data/` directory stores your active, authenticated browser session cookies and tokens. You must keep this folder excluded from version control via `.gitignore`, as uploading it would allow anyone to access your personal Facebook account without needing your password or 2FA.
+* **`backend/src/` directory**: Contains the API, configuration, session setup, and automation logic.
+* **`config.py`**: Loads the target configuration without requiring changes to the automation engine.
+* **`setup_session.py`**: Handles manual authentication and creates the persistent browser profile.
+* **`sniper.py`**: Runs the precision booking workflow.
+* **`frontend/src/` directory**: Contains the dashboard components, responsive sections, shared state, and API client.
+* **Critical security notice**: The `user_data/` directory stores authenticated browser cookies and tokens. Keep it excluded from version control and never share, upload, or expose it through the frontend or API.
+
+---
+
+## Web Dashboard
+
+The responsive CourtSniper dashboard includes:
+
+* A live system clock and countdown to the next configured booking time.
+* Armed and disarmed execution-state controls.
+* Booking URL, message, and target-time configuration.
+* Backend connection and session-setup controls.
+* Scheduler, system-status, and execution-console panels.
+* Desktop, tablet, and mobile layouts with accessible navigation.
+
+The **Start Sniper**, **Test Run**, and scheduler controls remain disabled until dedicated backend endpoints are implemented. The frontend does not execute local Python files directly.
 
 ---
 
@@ -81,16 +98,46 @@ npm run dev
 
 ```
 
+The frontend connects to `http://127.0.0.1:8000/api` by default. To use a different backend address, create `frontend/.env.local` and set:
+
+```dotenv
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
+```
+
+Before opening a pull request, verify the frontend with:
+
+```bash
+npm run lint
+npm run build
+```
+
 ---
 
 ## Configuration Setup (`.env`)
 
-Copy the safe `.env.example` template file to create your own hidden `.env` file in the `backend/` directory. Open `config.py` (or your new `.env` file) and configure these critical target variables:
+Copy the safe `.env.example` template to create a private `.env` file in the `backend/` directory. Configure these target variables in the new `.env` file:
 
 * **`TARGET_URL`**: The specific Facebook Messenger chat thread URL for the badminton club.
 * **`BOOKING_MESSAGE`**: Your customized booking message text (e.g., "Hi, I would like to book badminton court at 4 - 5pm").
-* **`TARGET_HOUR`, `TARGET_MINUTE`, `TARGET_SECOND**`: Your target execution timestamp set in 24-hour format (e.g., 8, 0, 0 for an 8:00 AM booking).
+* **`TARGET_HOUR`, `TARGET_MINUTE`, `TARGET_SECOND`**: Your target execution timestamp in 24-hour format (for example, `8`, `0`, `0` for 8:00 AM).
 * **`STATUS`**: Set this to `"ARMED"` or `"DISARMED"` to remotely control whether the Task Scheduler script actually fires.
+
+Never commit `.env`, `user_data/`, browser profiles, cookies, tokens, or account credentials.
+
+---
+
+## Frontend API Contract
+
+The current frontend uses the following API routes:
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/status` | Check whether the backend is available. |
+| `GET` | `/api/config` | Load the current booking configuration. |
+| `POST` | `/api/config` | Save booking configuration and armed status. |
+| `POST` | `/api/run-setup` | Request the manual login/session setup browser. |
+
+Running the automation from the dashboard is planned for a separate change. It should use a controlled endpoint such as `POST /api/run-sniper`, execute only the predefined automation script, reject concurrent runs, and return a clear run status. It must never accept arbitrary commands or script paths from the browser.
 
 ---
 
