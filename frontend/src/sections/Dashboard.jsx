@@ -1,129 +1,184 @@
-import { useState } from 'react';
-import { Crosshair, Calendar, Clock, FlaskConical, Info } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+  CalendarDays,
+  Clock3,
+  Crosshair,
+  FlaskConical,
+  Info,
+  Send,
+  Target,
+} from 'lucide-react';
+import Countdown from '../components/Countdown';
+
+function getNextBookingDate() {
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(9, 0, 0, 0);
+
+  if (target <= now) target.setDate(target.getDate() + 1);
+  return target;
+}
+
+function TargetGraphic() {
+  return (
+    <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[58%] overflow-hidden lg:block" aria-hidden="true">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,rgba(0,231,255,0.13),transparent_34%)]" />
+      <div className="absolute right-[-5rem] top-[-3rem] h-[22rem] w-[22rem] rounded-full border border-court-line/20" />
+      <div className="absolute right-[-1.5rem] top-[0.5rem] h-[15rem] w-[15rem] rounded-full border border-court-line/35" />
+
+      <div className="absolute right-[7%] top-1/2 h-48 w-48 -translate-y-1/2">
+        <span className="absolute left-1/2 top-0 h-full w-px bg-gradient-to-b from-transparent via-court-cyan to-transparent" />
+        <span className="absolute left-0 top-1/2 h-px w-full bg-gradient-to-r from-transparent via-court-cyan to-transparent" />
+        <div className="absolute inset-4 rounded-full border border-court-cyan shadow-cyan" />
+        <div className="absolute inset-[3.75rem] rounded-full border border-court-cyan/65" />
+        <Target className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rotate-[-22deg] text-court-cyan drop-shadow-[0_0_15px_rgba(0,231,255,0.45)]" strokeWidth={1.15} />
+      </div>
+
+      {Array.from({ length: 7 }).map((_, index) => (
+        <span
+          key={index}
+          className="absolute right-[9%] h-px origin-right bg-gradient-to-l from-court-cyan/70 to-transparent"
+          style={{
+            top: `${25 + index * 7}%`,
+            width: `${14 + index * 2}%`,
+            transform: `rotate(${index * 4 - 12}deg)`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function Dashboard() {
-  // This state controls the glowing toggle switch
   const [isArmed, setIsArmed] = useState(true);
+  const targetDate = useMemo(() => getNextBookingDate(), []);
+
+  const formattedDate = targetDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const formattedTime = targetDate.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+  const precisionTime = formattedTime.replace(' ', '.000 ');
 
   return (
-    <div className="space-y-6">
+    <div className="tactical-panel">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-court-cyan/70 to-transparent" />
 
-      {/* 1. Main Dashboard Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid lg:grid-cols-12">
+        <div className="relative z-10 p-6 sm:p-7 lg:col-span-7 lg:p-8 xl:p-9">
+          <h1 className="text-sm font-bold uppercase tracking-label text-court-cyan sm:text-base">
+            Next Booking
+          </h1>
 
-        {/* Left Column: Countdown & Status */}
-        <div className="lg:col-span-7 bg-[#0a0f1c] border border-slate-800 rounded-xl p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden shadow-lg">
-          {/* Subtle Top Glow */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#00FF66] to-transparent opacity-30"></div>
+          <Countdown targetDate={targetDate} />
 
-          <div>
-            <h2 className="text-[#00E5FF] text-xs font-bold tracking-widest uppercase mb-4">Next Booking</h2>
-            <div className="flex items-baseline space-x-2 lg:space-x-4 mb-2">
-              <span className="text-[#00FF66] font-mono text-6xl lg:text-7xl font-bold tracking-tight">00:02</span>
-              <span className="text-[#00FF66] font-mono text-4xl lg:text-5xl font-bold tracking-tight">:157</span>
-            </div>
-            <div className="flex space-x-10 lg:space-x-12 text-slate-500 text-[10px] font-bold tracking-widest uppercase ml-1">
-              <span>Hours</span>
-              <span>Minutes</span>
-              <span>Milliseconds</span>
-            </div>
-          </div>
-
-          <div className="mt-10 lg:mt-12">
-            <div className="flex items-center space-x-2 mb-4">
-              <h3 className="text-[#00E5FF] text-xs font-bold tracking-widest uppercase">Execution Status</h3>
-              <Info className="w-4 h-4 text-slate-500 cursor-pointer hover:text-slate-300 transition-colors" />
+          <div className="mt-7 sm:mt-8">
+            <div className="mb-3 flex items-center gap-2">
+              <h2 className="text-xs font-bold uppercase tracking-label text-court-cyan">
+                Execution Status
+              </h2>
+              <Info aria-hidden="true" className="h-3.5 w-3.5 text-court-muted" />
             </div>
 
-            {/* The ARMED / DISARMED Toggle */}
-            <div className="flex bg-[#0f172a] p-1.5 rounded-lg border border-slate-800 max-w-sm shadow-inner">
+            <div className="grid max-w-[31rem] grid-cols-2 rounded-full border border-court-green/60 bg-court-inset/90 p-0.5">
               <button
+                type="button"
+                aria-pressed={isArmed}
                 onClick={() => setIsArmed(true)}
-                className={`flex-1 py-3 text-sm font-bold tracking-wider rounded-md transition-all duration-300 ${
+                className={`flex min-h-10 items-center justify-center gap-2 rounded-full text-sm font-bold tracking-wide transition-all ${
                   isArmed
-                    ? 'bg-[#00FF66]/10 text-[#00FF66] border border-[#00FF66]/30 shadow-[0_0_15px_rgba(0,255,102,0.15)]'
-                    : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                    ? 'border border-court-green bg-court-green/15 text-court-green shadow-green-strong'
+                    : 'text-court-muted hover:text-court-text'
                 }`}
               >
-                <Crosshair className="w-4 h-4 inline-block mr-2 mb-0.5" />
+                <Crosshair aria-hidden="true" className="h-5 w-5" />
                 ARMED
               </button>
               <button
+                type="button"
+                aria-pressed={!isArmed}
                 onClick={() => setIsArmed(false)}
-                className={`flex-1 py-3 text-sm font-bold tracking-wider rounded-md transition-all duration-300 ${
+                className={`min-h-10 rounded-full text-sm font-bold tracking-wide transition-all ${
                   !isArmed
-                    ? 'bg-red-500/10 text-red-500 border border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.15)]'
-                    : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                    ? 'border border-court-danger bg-court-danger/10 text-court-danger shadow-[0_0_18px_rgba(255,55,72,0.24)]'
+                    : 'text-court-muted hover:text-court-text'
                 }`}
               >
                 DISARMED
               </button>
             </div>
 
-            <p className="text-slate-400 text-xs mt-4 border border-slate-800 bg-[#0f172a]/80 p-3 rounded-md max-w-sm leading-relaxed">
-              Task runs daily; booking executes only when <strong className="text-[#00FF66]">STATUS = ARMED</strong> (from .env).
+            <p className="mt-3 max-w-[31rem] rounded-md border border-court-green/45 bg-court-inset/80 px-4 py-3 text-center text-xs font-medium leading-relaxed text-court-text/80">
+              Task runs daily; booking executes only when{' '}
+              <strong className="font-mono text-court-green">STATUS = ARMED</strong>{' '}
+              (from <span className="font-mono">.env</span>).
             </p>
           </div>
         </div>
 
-        {/* Right Column: Target Info */}
-        <div className="lg:col-span-5 bg-[#0a0f1c] border border-slate-800 rounded-xl p-6 lg:p-8 flex flex-col justify-center relative overflow-hidden shadow-lg">
-           {/* Decorative Radar Background */}
-           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#00E5FF] via-[#0a0f1c] to-[#0a0f1c]"></div>
+        <div className="relative min-h-[17rem] overflow-hidden border-t border-court-line-soft/70 p-6 sm:p-7 lg:col-span-5 lg:min-h-0 lg:border-l lg:border-t-0 lg:p-8">
+          <TargetGraphic />
 
-          <h2 className="text-[#00E5FF] text-xs font-bold tracking-widest uppercase mb-8 relative z-10">Target Booking</h2>
+          <div className="relative z-10 max-w-xs">
+            <h2 className="mb-6 text-xs font-bold uppercase tracking-label text-court-cyan">
+              Target Booking
+            </h2>
 
-          <div className="space-y-6 relative z-10">
-            <div className="flex items-center space-x-4">
-              <Crosshair className="w-5 h-5 text-[#00E5FF]" />
-              <span className="text-slate-200 font-semibold tracking-wide">Court Booking</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Calendar className="w-5 h-5 text-slate-500" />
-              <span className="text-slate-200 font-semibold tracking-wide">May 23, 2025</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Clock className="w-5 h-5 text-slate-500" />
-              <span className="text-slate-200 font-mono tracking-wider">09:00:00.000 AM</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* 2. Action Bar */}
-      <div className="bg-[#0a0f1c] border border-slate-800 rounded-xl p-5 flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 shadow-lg">
-
-        {/* Left Status Text */}
-        <div className="flex items-center space-x-4">
-          <div className={`flex items-center space-x-2 bg-[#0f172a] px-3 py-1.5 rounded-md border ${isArmed ? 'border-[#00FF66]/20' : 'border-red-500/20'}`}>
-             <div className={`w-2 h-2 rounded-full ${isArmed ? 'bg-[#00FF66] shadow-[0_0_8px_#00FF66]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></div>
-             <span className={`text-[10px] font-bold tracking-widest ${isArmed ? 'text-[#00FF66]' : 'text-red-500'}`}>
-                {isArmed ? 'ARMED & READY' : 'DISARMED'}
-             </span>
-          </div>
-          <span className="text-slate-500 text-xs font-medium hidden sm:block">Target time: 09:00:00.000 AM</span>
-        </div>
-
-        {/* Right Action Buttons */}
-        <div className="flex space-x-4 w-full sm:w-auto">
-           <button className="flex-1 sm:flex-none group relative bg-[#0f172a] border border-[#00FF66]/50 hover:border-[#00FF66] text-[#00FF66] px-8 py-3 rounded-md transition-all overflow-hidden flex items-center justify-center space-x-3 shadow-[0_0_15px_rgba(0,255,102,0.1)] hover:shadow-[0_0_25px_rgba(0,255,102,0.2)]">
-              <div className="absolute inset-0 bg-[#00FF66]/10 group-hover:bg-[#00FF66]/20 transition-all"></div>
-              <Crosshair className="w-5 h-5 relative z-10" />
-              <div className="flex flex-col items-start text-left relative z-10">
-                <span className="font-bold tracking-widest leading-none text-sm mb-1">START SNIPER</span>
-                <span className="text-[8px] opacity-80 tracking-widest leading-none uppercase">Send Booking Message</span>
+            <div className="space-y-5 text-sm font-medium text-court-text">
+              <div className="flex items-center gap-3">
+                <Crosshair aria-hidden="true" className="h-5 w-5 text-court-cyan" />
+                <span>Court Booking</span>
               </div>
-           </button>
-
-           <button className="px-6 py-3 bg-[#0f172a] border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white rounded-md transition-all flex items-center justify-center space-x-2 text-sm font-bold tracking-wider">
-              <FlaskConical className="w-4 h-4 text-[#00E5FF]" />
-              <span>TEST RUN</span>
-           </button>
+              <div className="flex items-center gap-3">
+                <CalendarDays aria-hidden="true" className="h-5 w-5 text-court-text/80" />
+                <span>{formattedDate}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Clock3 aria-hidden="true" className="h-5 w-5 text-court-text/80" />
+                <span className="font-mono text-xs">{precisionTime}</span>
+              </div>
+            </div>
+          </div>
         </div>
-
       </div>
 
+      <div className="relative z-10 grid gap-3 border-t border-court-line-soft/70 bg-court-void/20 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(17rem,1.3fr)_minmax(11rem,0.8fr)] sm:items-center sm:p-5 lg:px-7">
+        <div>
+          <div className={`inline-flex items-center gap-2 rounded border px-2.5 py-1 text-[0.67rem] font-bold tracking-label ${
+            isArmed
+              ? 'border-court-green/45 text-court-green'
+              : 'border-court-danger/45 text-court-danger'
+          }`}>
+            <span className={`h-2 w-2 rounded-full ${
+              isArmed ? 'bg-court-green shadow-[0_0_8px_#63ff00]' : 'bg-court-danger shadow-[0_0_8px_#ff3748]'
+            }`} />
+            {isArmed ? 'ARMED & READY' : 'DISARMED'}
+          </div>
+          <p className="mt-2 text-[0.7rem] font-medium text-court-muted">
+            Target time: {precisionTime}
+          </p>
+        </div>
+
+        <button type="button" className="tactical-button tactical-button--primary min-h-[4rem] px-5">
+          <Crosshair aria-hidden="true" className="h-8 w-8" />
+          <span className="text-left">
+            <span className="block text-lg leading-none">Start Sniper</span>
+            <span className="mt-1 block text-[0.55rem] tracking-label">Send booking message</span>
+          </span>
+          <Send aria-hidden="true" className="h-4 w-4 opacity-70" />
+        </button>
+
+        <button type="button" className="tactical-button min-h-[3.3rem] px-5">
+          <FlaskConical aria-hidden="true" className="h-5 w-5" />
+          Test Run
+        </button>
+      </div>
     </div>
   );
 }
