@@ -66,7 +66,7 @@ export default function Sidebar({ isOpen, onClose }) {
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[7.5rem] flex-col border-r border-court-line bg-court-panel/98 shadow-panel transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[10rem] flex-col border-r border-court-line bg-court-panel/98 shadow-panel transition-transform duration-300 lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         aria-label="Primary navigation"
@@ -86,17 +86,17 @@ export default function Sidebar({ isOpen, onClose }) {
           className="flex h-[9.8rem] shrink-0 flex-col items-center justify-center border-b border-court-line-soft/80 px-3 text-center"
           aria-label="CourtSniper dashboard"
         >
-          <div className="relative mb-3 flex h-[4.3rem] w-[4.3rem] items-center justify-center rounded-full border border-court-cyan text-court-cyan shadow-cyan">
+          <div className="relative mb-3 flex h-[4.7rem] w-[4.7rem] items-center justify-center rounded-full border border-court-cyan text-court-cyan shadow-cyan">
             <span className="absolute -left-2 top-1/2 h-px w-4 bg-court-cyan" />
             <span className="absolute -right-2 top-1/2 h-px w-4 bg-court-cyan" />
             <span className="absolute -top-2 left-1/2 h-4 w-px bg-court-cyan" />
             <span className="absolute -bottom-2 left-1/2 h-4 w-px bg-court-cyan" />
-            <Crosshair aria-hidden="true" className="h-11 w-11" strokeWidth={1.2} />
+            <Crosshair aria-hidden="true" className="h-12 w-12" strokeWidth={1.2} />
           </div>
-          <span className="font-display text-[1.05rem] font-bold italic leading-[0.95] tracking-tactical text-white">
+          <span className="font-display text-[1.25rem] font-bold italic leading-[0.95] tracking-tactical text-white">
             COURT
           </span>
-          <span className="neon-green-text mt-1 font-display text-[1.05rem] font-bold italic leading-[0.95] tracking-tactical">
+          <span className="neon-green-text mt-1 font-display text-[1.25rem] font-bold italic leading-[0.95] tracking-tactical">
             SNIPER
           </span>
         </a>
@@ -112,7 +112,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 href={item.href}
                 onClick={onClose}
                 aria-current={isActive ? 'page' : undefined}
-                className={`group relative flex h-[3.55rem] items-center gap-2.5 px-3 text-[0.72rem] font-semibold transition-colors ${
+                className={`group relative flex h-[3.85rem] items-center gap-3.5 px-5 text-[0.86rem] font-semibold transition-colors ${
                   isActive
                     ? 'bg-court-green/[0.08] text-white'
                     : 'text-court-text/80 hover:bg-court-cyan/[0.05] hover:text-white'
@@ -127,7 +127,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 />
                 <Icon
                   aria-hidden="true"
-                  className={`h-[1.15rem] w-[1.15rem] shrink-0 ${
+                  className={`h-5 w-5 shrink-0 ${
                     isActive ? 'text-court-cyan' : 'text-court-text'
                   }`}
                   strokeWidth={1.7}
@@ -138,12 +138,12 @@ export default function Sidebar({ isOpen, onClose }) {
           })}
         </nav>
 
-        <div className="shrink-0 border-t border-court-line-soft/80 px-3 py-4">
-          <div className="mb-2 flex items-center gap-2 text-[0.65rem] font-semibold text-court-text">
+        <div className="shrink-0 border-t border-court-line-soft/80 px-5 py-4">
+          <div className="mb-2 flex items-center gap-2 text-[0.76rem] font-semibold text-court-text">
             <span className="status-dot h-2 w-2 animate-status-pulse" />
             <span>All systems go.</span>
           </div>
-          <p className="text-[0.62rem] font-medium text-court-muted">Good luck! 🎯</p>
+          <p className="text-[0.73rem] font-medium text-court-muted">Good luck! 🎯</p>
         </div>
       </aside>
     </>
