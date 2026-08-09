@@ -1,54 +1,54 @@
-import { User, ShieldCheck, RefreshCw, AppWindow } from 'lucide-react';
+import {
+  AppWindow,
+  RefreshCw,
+  ShieldCheck,
+  UserRound,
+} from 'lucide-react';
+import SectionHeader from '../components/SectionHeader';
+
+const sessionDetails = [
+  { label: 'Last Refresh', value: 'May 22, 2025 10:15 PM' },
+  { label: 'User Data', value: 'user_data/ (Local)', mono: true },
+  { label: 'Browser', value: 'Chromium (Persistent)' },
+];
 
 export default function Session() {
   return (
-    <div className="bg-[#0a0f1c] border border-slate-800 rounded-xl p-6 lg:p-8 shadow-lg relative overflow-hidden">
+    <div className="tactical-panel">
+      <SectionHeader icon={UserRound} title="Session" />
 
-      {/* Section Header */}
-      <div className="flex items-center space-x-3 mb-8">
-        <User className="w-5 h-5 text-[#00E5FF]" />
-        <h2 className="text-[#00E5FF] text-sm font-bold tracking-widest uppercase">Session</h2>
-      </div>
-
-      {/* Content Wrapper */}
-      <div className="flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between">
-
-        {/* Left: Status Badge */}
-        <div className="flex items-center space-x-4 bg-[#0f172a] border border-[#00FF66]/20 p-5 rounded-lg lg:w-1/3 w-full">
-          <div className="bg-[#00FF66]/10 p-3 rounded-full border border-[#00FF66]/20 shadow-[0_0_15px_rgba(0,255,102,0.15)]">
-            <ShieldCheck className="w-8 h-8 text-[#00FF66]" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[#00FF66] font-bold tracking-widest text-sm mb-1">SESSION VALID</span>
-            <span className="text-slate-400 text-xs">Authenticated and ready to go.</span>
+      <div className="grid gap-5 p-4 lg:grid-cols-[1.05fr_1.2fr_1.05fr] lg:items-center lg:gap-0 lg:p-5">
+        <div className="lg:pr-6">
+          <div className="flex min-h-24 items-center gap-4 rounded-md border border-court-green/25 bg-court-inset/70 p-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-court-green/10 text-court-green shadow-green">
+              <ShieldCheck aria-hidden="true" className="h-9 w-9 fill-court-green/15" />
+            </div>
+            <div>
+              <div className="text-xs font-bold uppercase tracking-tactical text-court-green">Session Valid</div>
+              <p className="mt-1.5 text-[0.68rem] font-medium text-court-text/75">Authenticated and ready to go.</p>
+            </div>
           </div>
         </div>
 
-        {/* Middle: Details */}
-        <div className="grid grid-cols-2 gap-x-8 gap-y-4 lg:w-1/3 w-full text-sm">
-          <div className="flex flex-col space-y-1">
-            <span className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">Last Refresh</span>
-            <span className="text-slate-200">May 22, 2025 10:15 PM</span>
-          </div>
-          <div className="flex flex-col space-y-1">
-            <span className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">User Data</span>
-            <span className="text-slate-200 font-mono">user_data/ (Local)</span>
-          </div>
-          <div className="flex flex-col space-y-1">
-            <span className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">Browser</span>
-            <span className="text-slate-200">Chromium (Persistent)</span>
-          </div>
-        </div>
+        <dl className="grid gap-x-5 gap-y-4 border-court-line-soft/70 lg:grid-cols-2 lg:border-x lg:px-6">
+          {sessionDetails.map((detail) => (
+            <div key={detail.label} className={detail.label === 'Browser' ? 'lg:col-span-2' : ''}>
+              <dt className="text-[0.62rem] font-bold uppercase tracking-label text-court-muted">{detail.label}</dt>
+              <dd className={`mt-1 text-xs font-medium text-court-text ${detail.mono ? 'font-mono' : ''}`}>
+                {detail.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
 
-        {/* Right: Actions */}
-        <div className="flex flex-col space-y-3 lg:w-1/3 w-full">
-          <button className="flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#0f172a] border border-[#00E5FF]/40 text-[#00E5FF] hover:bg-[#00E5FF]/10 hover:border-[#00E5FF] rounded-md transition-all font-bold tracking-wider text-xs shadow-[0_0_10px_rgba(0,229,255,0.05)] hover:shadow-[0_0_15px_rgba(0,229,255,0.15)]">
-            <RefreshCw className="w-4 h-4" />
-            <span>REFRESH SESSION</span>
+        <div className="grid gap-3 lg:pl-6">
+          <button type="button" className="tactical-button min-h-10 px-4">
+            <RefreshCw aria-hidden="true" className="h-4 w-4" />
+            Refresh Session
           </button>
-          <button className="flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#0f172a] border border-[#00E5FF]/40 text-[#00E5FF] hover:bg-[#00E5FF]/10 hover:border-[#00E5FF] rounded-md transition-all font-bold tracking-wider text-xs shadow-[0_0_10px_rgba(0,229,255,0.05)] hover:shadow-[0_0_15px_rgba(0,229,255,0.15)]">
-            <AppWindow className="w-4 h-4" />
-            <span>OPEN LOGIN BROWSER</span>
+          <button type="button" className="tactical-button min-h-10 px-4">
+            <AppWindow aria-hidden="true" className="h-4 w-4" />
+            Open Login Browser
           </button>
         </div>
       </div>

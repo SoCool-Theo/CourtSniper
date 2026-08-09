@@ -1,72 +1,65 @@
-import { CalendarClock, CheckSquare, ExternalLink, Calendar } from 'lucide-react';
+import {
+  CalendarCheck,
+  CalendarDays,
+  CheckSquare2,
+  ExternalLink,
+} from 'lucide-react';
+import SectionHeader from '../components/SectionHeader';
+
+const requirements = [
+  'Wake the computer to run this task',
+  'Run only when user is logged on',
+  'Run with highest privileges',
+];
 
 export default function Scheduler() {
   return (
-    <div className="bg-[#0a0f1c] border border-slate-800 rounded-xl p-6 lg:p-8 shadow-lg relative overflow-hidden">
+    <div className="tactical-panel">
+      <SectionHeader icon={CalendarDays} title="Scheduler" />
 
-      {/* Section Header */}
-      <div className="flex items-center space-x-3 mb-8">
-        <CalendarClock className="w-5 h-5 text-[#00E5FF]" />
-        <h2 className="text-[#00E5FF] text-sm font-bold tracking-widest uppercase">Scheduler</h2>
-      </div>
+      <div className="p-4 sm:p-5">
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.2fr_0.85fr] lg:items-center lg:gap-0">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-3 lg:pr-7">
+            <dt className="text-[0.65rem] font-bold text-court-text/75">Status</dt>
+            <dd className="flex items-center gap-2 text-[0.68rem] font-bold uppercase tracking-wide text-court-green">
+              <span className="status-dot" /> Enabled
+            </dd>
+            <dt className="text-[0.65rem] font-bold text-court-text/75">Next Execution</dt>
+            <dd className="text-xs font-medium leading-snug text-court-text">
+              Tomorrow 08:57 AM
+              <span className="block text-[0.65rem] text-court-muted">(in approximately 24 hours)</span>
+            </dd>
+            <dt className="text-[0.65rem] font-bold text-court-text/75">Trigger</dt>
+            <dd className="text-xs font-medium text-court-text">One time</dd>
+          </dl>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-
-        {/* Left: Execution Details */}
-        <div className="grid grid-cols-2 gap-y-6 gap-x-8 lg:w-1/3 w-full">
-          <div className="flex flex-col space-y-2">
-            <span className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">Status</span>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-[#00FF66] rounded-full shadow-[0_0_8px_#00FF66]"></div>
-              <span className="text-[#00FF66] text-xs font-bold tracking-wider">ENABLED</span>
-            </div>
+          <div className="space-y-3 border-court-line-soft/70 lg:border-x lg:px-7">
+            {requirements.map((requirement) => (
+              <div key={requirement} className="flex items-center gap-3 text-xs font-medium text-court-text/90">
+                <CheckSquare2 aria-hidden="true" className="h-4 w-4 shrink-0 text-court-cyan" />
+                <span>{requirement}</span>
+              </div>
+            ))}
           </div>
 
-          <div className="flex flex-col space-y-2">
-            <span className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">Trigger</span>
-            <span className="text-slate-200 text-sm">Daily</span>
-          </div>
-
-          <div className="flex flex-col space-y-2 col-span-2">
-            <span className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">Next Execution</span>
-            <span className="text-slate-200 text-sm">Tomorrow 07:55 AM</span>
-          </div>
-        </div>
-
-        {/* Middle: Checklist */}
-        <div className="flex flex-col space-y-4 lg:w-1/3 w-full lg:border-l lg:border-slate-800 lg:pl-8">
-          <div className="flex items-center space-x-3">
-            <CheckSquare className="w-4 h-4 text-[#00E5FF]" />
-            <span className="text-slate-300 text-xs">Wake the computer to run this task</span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <CheckSquare className="w-4 h-4 text-[#00E5FF]" />
-            <span className="text-slate-300 text-xs">Run only when user is logged on</span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <CheckSquare className="w-4 h-4 text-[#00E5FF]" />
-            <span className="text-slate-300 text-xs">Run with highest privileges</span>
+          <div className="lg:pl-7">
+            <button type="button" className="tactical-button min-h-11 w-full px-4">
+              <ExternalLink aria-hidden="true" className="h-4 w-4" />
+              Open Task Scheduler
+            </button>
           </div>
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex flex-col justify-center lg:w-1/3 w-full">
-           <button className="flex items-center justify-center space-x-2 px-6 py-3 bg-[#0f172a] border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white rounded-md transition-all font-bold tracking-wider text-xs shadow-md group">
-             <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
-             <span>OPEN TASK SCHEDULER</span>
-           </button>
+        <div className="mt-5 flex items-start gap-3 rounded-md border border-court-green/45 bg-court-inset/75 px-4 py-3">
+          <CalendarCheck aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-court-cyan" />
+          <p className="text-[0.7rem] font-medium leading-relaxed text-court-text/80">
+            Scheduled daily at 08:57 AM. Script self-checks{' '}
+            <strong className="font-mono text-court-green">STATUS</strong> in{' '}
+            <span className="font-mono text-court-text">.env</span>; executes only when{' '}
+            <strong className="font-mono text-court-green">STATUS = ARMED</strong>.
+          </p>
         </div>
-
       </div>
-
-      {/* Bottom Banner */}
-      <div className="mt-8 bg-[#0f172a] border border-slate-800 rounded-md p-4 flex items-start sm:items-center space-x-3">
-        <Calendar className="w-4 h-4 text-slate-400 mt-0.5 sm:mt-0 shrink-0" />
-        <p className="text-slate-400 text-xs leading-relaxed">
-          Scheduled daily at 07:55 AM. Script self-checks <strong className="text-[#00FF66]">STATUS</strong> in .env; executes only when <strong className="text-[#00FF66]">STATUS = ARMED</strong>.
-        </p>
-      </div>
-
     </div>
   );
 }
