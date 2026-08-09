@@ -51,3 +51,11 @@ export function saveConfig(configData) {
 export function triggerSetupSession() {
   return apiRequest('/run-setup', { method: 'POST' });
 }
+
+export function triggerSniperRun() {
+  return apiRequest('/run-sniper', { method: 'POST' });
+}
+
+export function fetchSniperRunStatus() {
+  return apiRequest('/run-sniper/status');
+}

@@ -43,12 +43,25 @@ export default function Dashboard() {
   const {
     config,
     apiError,
+    sniperError,
+    sniperRun,
+    connectionStatus,
     isLoadingConfig,
     isSavingConfig,
+    isStartingSniper,
     updateConfiguration,
+    startSniperRun,
   } = useCourtSniper();
   const [statusFeedback, setStatusFeedback] = useState('');
+  const [runFeedback, setRunFeedback] = useState('');
   const isArmed = config.STATUS === 'ARMED';
+  const isRunActive = sniperRun.state === 'running';
+  const canStartSniper = connectionStatus === 'online'
+    && isArmed
+    && !isLoadingConfig
+    && !isSavingConfig
+    && !isStartingSniper
+    && !isRunActive;
   const targetDate = useMemo(() => getNextBookingDate(config), [config]);
 
   const updateArmedStatus = async (nextStatus) => {
@@ -59,6 +72,17 @@ export default function Dashboard() {
       setStatusFeedback(`Execution status changed to ${nextStatus}.`);
     } catch {
       setStatusFeedback('Unable to update execution status.');
+    }
+  };
+
+  const handleStartSniper = async () => {
+    setRunFeedback('');
+
+    try {
+      const result = await startSniperRun();
+      setRunFeedback(result?.message || 'CourtSniper run started.');
+    } catch (error) {
+      setRunFeedback(error.message || 'Unable to start CourtSniper.');
     }
   };
 
@@ -185,14 +209,21 @@ export default function Dashboard() {
 
         <button
           type="button"
-          disabled
-          title="Requires a POST /api/run-sniper backend endpoint"
-          className="tactical-button tactical-button--primary min-h-[4rem] cursor-not-allowed px-5 opacity-55"
+          onClick={handleStartSniper}
+          disabled={!canStartSniper}
+          title={isArmed ? 'Start the configured CourtSniper run' : 'Arm CourtSniper before starting'}
+          className={`tactical-button tactical-button--primary min-h-[4rem] px-5 ${
+            canStartSniper ? '' : 'cursor-not-allowed opacity-55'
+          }`}
         >
           <Crosshair aria-hidden="true" className="h-8 w-8" />
           <span className="text-left">
-            <span className="block text-lg leading-none">Start Sniper</span>
-            <span className="mt-1 block text-[0.55rem] tracking-label">Send booking message</span>
+            <span className="block text-lg leading-none">
+              {isStartingSniper ? 'Starting...' : isRunActive ? 'Sniper Running' : 'Start Sniper'}
+            </span>
+            <span className="mt-1 block text-[0.55rem] tracking-label">
+              {isRunActive ? `Process ${sniperRun.pid ?? 'active'}` : 'Send booking message'}
+            </span>
           </span>
           <Send aria-hidden="true" className="h-4 w-4 opacity-70" />
         </button>
@@ -206,6 +237,17 @@ export default function Dashboard() {
           <FlaskConical aria-hidden="true" className="h-5 w-5" />
           Test Run
         </button>
+
+        {(runFeedback || sniperError) && (
+          <p className={`text-[0.68rem] font-semibold lg:col-start-2 ${
+            (runFeedback || '').includes('started') && !sniperError
+              ? 'text-court-green'
+              : 'text-court-danger'
+          }`}
+          >
+            {sniperError || runFeedback}
+          </p>
+        )}
       </div>
     </div>
   );
