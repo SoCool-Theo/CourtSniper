@@ -27,12 +27,23 @@ function useActiveSection() {
       .filter((section) => document.getElementById(section));
 
     const updateActiveSection = () => {
-      const marker = window.scrollY + Math.min(180, window.innerHeight * 0.28);
       let current = sectionIds[0] ?? 'dashboard';
+      let largestVisibleArea = 0;
+      const headerOffset = 112;
 
       sectionIds.forEach((id) => {
         const element = document.getElementById(id);
-        if (element && element.offsetTop <= marker) current = id;
+        if (!element) return;
+
+        const bounds = element.getBoundingClientRect();
+        const visibleTop = Math.max(bounds.top, headerOffset);
+        const visibleBottom = Math.min(bounds.bottom, window.innerHeight);
+        const visibleArea = Math.max(0, visibleBottom - visibleTop);
+
+        if (visibleArea > largestVisibleArea) {
+          largestVisibleArea = visibleArea;
+          current = id;
+        }
       });
 
       setActiveSection(current);
@@ -48,11 +59,16 @@ function useActiveSection() {
     };
   }, []);
 
-  return activeSection;
+  return [activeSection, setActiveSection];
 }
 
 export default function Sidebar({ isOpen, onClose }) {
-  const activeSection = useActiveSection();
+  const [activeSection, setActiveSection] = useActiveSection();
+
+  const handleNavigation = (section) => {
+    setActiveSection(section);
+    onClose();
+  };
 
   return (
     <>
@@ -110,7 +126,7 @@ export default function Sidebar({ isOpen, onClose }) {
               <a
                 key={item.name}
                 href={item.href}
-                onClick={onClose}
+                onClick={() => handleNavigation(item.section)}
                 aria-current={isActive ? 'page' : undefined}
                 className={`group relative flex h-[3.85rem] items-center gap-3.5 px-5 text-[0.86rem] font-semibold transition-colors ${
                   isActive
