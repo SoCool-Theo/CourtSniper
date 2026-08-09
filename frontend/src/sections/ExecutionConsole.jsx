@@ -1,10 +1,9 @@
 import {
   Check,
   CheckCircle2,
-  Crosshair,
-  Target,
   TerminalSquare,
 } from 'lucide-react';
+import { assetUrl } from '../assets';
 import SectionHeader from '../components/SectionHeader';
 
 const logs = [
@@ -45,22 +44,19 @@ function ConsoleLog({ log }) {
 
 function TargetHitPanel() {
   return (
-    <div className="relative flex min-h-[18rem] flex-col items-center justify-center overflow-hidden rounded-md border border-court-green bg-[radial-gradient(circle_at_center,rgba(31,117,5,0.42),rgba(1,18,8,0.96)_65%)] px-5 text-center shadow-green-strong">
-      <div className="absolute inset-0 bg-tactical-grid bg-tactical-grid opacity-25" />
-      <div className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-[64%] rounded-full border border-court-green/15" />
-      <div className="absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-[70%] rounded-full border border-court-green/35" />
+    <div className="relative flex min-h-[18rem] flex-col items-center justify-center overflow-hidden rounded-md border border-court-green bg-[radial-gradient(circle_at_center,rgba(31,117,5,0.42),rgba(1,18,8,0.96)_65%)] px-5 py-4 text-center shadow-green-strong">
+      <img
+        src={assetUrl('shuttlecock-hit')}
+        alt=""
+        className="relative h-36 w-full shrink-0 object-contain"
+      />
 
-      <div className="relative mb-5 flex h-24 w-24 items-center justify-center text-court-green">
-        <span className="absolute left-1/2 top-0 h-full w-px bg-gradient-to-b from-transparent via-court-green to-transparent" />
-        <span className="absolute left-0 top-1/2 h-px w-full bg-gradient-to-r from-transparent via-court-green to-transparent" />
-        <Target aria-hidden="true" className="h-20 w-20 drop-shadow-[0_0_14px_rgba(99,255,0,0.55)]" strokeWidth={1.2} />
-        <Crosshair aria-hidden="true" className="absolute h-9 w-9" strokeWidth={1.5} />
-      </div>
-
-      <h3 className="relative text-3xl font-bold uppercase tracking-tactical text-court-green drop-shadow-[0_0_12px_rgba(99,255,0,0.6)] sm:text-4xl">
+      <h3 className="relative mt-1 text-3xl font-bold uppercase tracking-tactical text-court-green drop-shadow-[0_0_12px_rgba(99,255,0,0.6)] sm:text-4xl">
         Target Hit!
       </h3>
-      <p className="relative mt-2 text-base font-semibold text-court-green">Booking request sent.</p>
+      <p className="relative mt-2 text-base font-semibold text-court-green">
+        Booking request sent.
+      </p>
       <CheckCircle2 aria-hidden="true" className="relative mt-3 h-8 w-8 text-court-green" />
     </div>
   );

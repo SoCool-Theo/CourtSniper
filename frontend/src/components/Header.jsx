@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
   CalendarClock,
-  Crosshair,
   Menu,
   Settings,
   ShieldCheck,
 } from 'lucide-react';
+import { assetUrl } from '../assets';
 
 function StatusBlock({ icon: Icon, label, children, dot = true }) {
   return (
@@ -58,10 +58,12 @@ export default function Header({ onMenuToggle }) {
           <Menu aria-hidden="true" className="h-5 w-5" />
         </button>
 
-        <div className="flex min-w-0 flex-1 items-center px-3 sm:px-5 lg:w-[20rem] lg:flex-none lg:px-7">
-          <div className="mr-3 hidden h-12 w-12 shrink-0 items-center justify-center rounded-full border border-court-cyan/70 text-court-cyan shadow-cyan sm:flex">
-            <Crosshair aria-hidden="true" className="h-8 w-8" strokeWidth={1.4} />
-          </div>
+        <div className="flex min-w-0 flex-1 items-center px-3 sm:px-5 lg:w-[20rem] lg:flex-none lg:px-5">
+          <img
+            src={assetUrl('shuttlecock-mark')}
+            alt=""
+            className="mr-2 hidden h-[4.5rem] w-[4.5rem] shrink-0 object-contain sm:block"
+          />
           <div className="min-w-0">
             <div className="truncate font-display text-xl font-bold italic leading-none tracking-tactical sm:text-2xl">
               <span className="text-white">COURT</span>{' '}

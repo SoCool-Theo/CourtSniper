@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
   CalendarDays,
-  Crosshair,
   LayoutGrid,
   Settings,
   TerminalSquare,
   UserRound,
   X,
 } from 'lucide-react';
+import { assetUrl } from '../assets';
 
 const navigation = [
   { name: 'Dashboard', icon: LayoutGrid, href: '#dashboard', section: 'dashboard' },
@@ -102,13 +102,13 @@ export default function Sidebar({ isOpen, onClose }) {
           className="flex h-[9.8rem] shrink-0 flex-col items-center justify-center border-b border-court-line-soft/80 px-3 text-center"
           aria-label="CourtSniper dashboard"
         >
-          <div className="relative mb-3 flex h-[4.7rem] w-[4.7rem] items-center justify-center rounded-full border border-court-cyan text-court-cyan shadow-cyan">
-            <span className="absolute -left-2 top-1/2 h-px w-4 bg-court-cyan" />
-            <span className="absolute -right-2 top-1/2 h-px w-4 bg-court-cyan" />
-            <span className="absolute -top-2 left-1/2 h-4 w-px bg-court-cyan" />
-            <span className="absolute -bottom-2 left-1/2 h-4 w-px bg-court-cyan" />
-            <Crosshair aria-hidden="true" className="h-12 w-12" strokeWidth={1.2} />
-          </div>
+          <span className="mb-1.5 block w-[6.6rem] overflow-hidden">
+            <img
+              src={assetUrl('shuttlecock-mark')}
+              alt=""
+              className="w-full"
+            />
+          </span>
           <span className="font-display text-[1.25rem] font-bold italic leading-[0.95] tracking-tactical text-white">
             COURT
           </span>

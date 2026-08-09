@@ -6,8 +6,8 @@ import {
   FlaskConical,
   Info,
   Send,
-  Target,
 } from 'lucide-react';
+import { assetUrl } from '../assets';
 import Countdown from '../components/Countdown';
 
 function getNextBookingDate() {
@@ -21,30 +21,14 @@ function getNextBookingDate() {
 
 function TargetGraphic() {
   return (
-    <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[58%] overflow-hidden lg:block" aria-hidden="true">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,rgba(0,231,255,0.13),transparent_34%)]" />
-      <div className="absolute right-[-5rem] top-[-3rem] h-[22rem] w-[22rem] rounded-full border border-court-line/20" />
-      <div className="absolute right-[-1.5rem] top-[0.5rem] h-[15rem] w-[15rem] rounded-full border border-court-line/35" />
-
-      <div className="absolute right-[7%] top-1/2 h-48 w-48 -translate-y-1/2">
-        <span className="absolute left-1/2 top-0 h-full w-px bg-gradient-to-b from-transparent via-court-cyan to-transparent" />
-        <span className="absolute left-0 top-1/2 h-px w-full bg-gradient-to-r from-transparent via-court-cyan to-transparent" />
-        <div className="absolute inset-4 rounded-full border border-court-cyan shadow-cyan" />
-        <div className="absolute inset-[3.75rem] rounded-full border border-court-cyan/65" />
-        <Target className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rotate-[-22deg] text-court-cyan drop-shadow-[0_0_15px_rgba(0,231,255,0.45)]" strokeWidth={1.15} />
-      </div>
-
-      {Array.from({ length: 7 }).map((_, index) => (
-        <span
-          key={index}
-          className="absolute right-[9%] h-px origin-right bg-gradient-to-l from-court-cyan/70 to-transparent"
-          style={{
-            top: `${25 + index * 7}%`,
-            width: `${14 + index * 2}%`,
-            transform: `rotate(${index * 4 - 12}deg)`,
-          }}
-        />
-      ))}
+    <div className="pointer-events-none absolute inset-0 hidden overflow-hidden lg:block" aria-hidden="true">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_48%,rgba(0,231,255,0.12),transparent_42%)]" />
+      <img
+        src={assetUrl('shuttlecock-target')}
+        alt=""
+        className="relative h-full w-full object-contain object-right p-3 xl:p-5"
+      />
+      <div className="absolute inset-0 bg-gradient-to-r from-court-panel via-court-panel/35 to-transparent" />
     </div>
   );
 }
