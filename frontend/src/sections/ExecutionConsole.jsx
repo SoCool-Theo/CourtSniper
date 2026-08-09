@@ -1,30 +1,64 @@
 import {
+  AlertTriangle,
   Check,
   CheckCircle2,
+  Crosshair,
+  LoaderCircle,
   TerminalSquare,
 } from 'lucide-react';
 import { assetUrl } from '../assets';
 import SectionHeader from '../components/SectionHeader';
+import useCourtSniper from '../context/useCourtSniper';
 
-const logs = [
-  { time: '08:57:40.123', message: 'CourtSniper initialized successfully.' },
-  { time: '08:57:40.456', message: 'Configuration loaded.' },
-  { time: '08:57:40.789', message: 'Session loaded and authenticated.' },
-  { time: '08:57:41.012', message: 'Browser ready. Navigated to target chat.' },
-  { time: '08:57:41.789', message: 'Synchronizing with target time...' },
-  { time: '08:57:42.123', message: 'Countdown started. Target: 09:00:00.000' },
-  { time: '08:59:58.250', message: 'T - 00:01.750' },
-  { time: '08:59:59.500', message: 'T - 00:00.500' },
-  { time: '08:59:59.900', message: 'Final sync...', tone: 'success' },
-  { time: '09:00:00.000', message: '>>> BOOKING MESSAGE DISPATCHED <<<', tone: 'strong' },
-  { time: '09:00:00.230', message: 'Message sent successfully!', tone: 'success', checked: true },
-];
+function formatTimestamp(timestamp) {
+  if (!timestamp) return '--:--:--.---';
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '--:--:--.---';
+
+  return date.toLocaleTimeString('en-US', {
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 3,
+  });
+}
+
+function getRunLogs(run) {
+  if (run.state === 'running') {
+    return [
+      { time: formatTimestamp(run.started_at), message: `CourtSniper process ${run.pid ?? ''} started.` },
+      { time: formatTimestamp(run.started_at), message: 'Automation is running. Waiting for completion...', tone: 'success' },
+    ];
+  }
+
+  if (run.state === 'succeeded') {
+    return [
+      { time: formatTimestamp(run.started_at), message: `CourtSniper process ${run.pid ?? ''} started.` },
+      { time: formatTimestamp(run.finished_at), message: 'CourtSniper process completed successfully.', tone: 'strong', checked: true },
+    ];
+  }
+
+  if (run.state === 'failed') {
+    return [
+      { time: formatTimestamp(run.started_at), message: `CourtSniper process ${run.pid ?? ''} started.` },
+      { time: formatTimestamp(run.finished_at), message: `Process failed with exit code ${run.exit_code ?? 'unknown'}.`, tone: 'danger' },
+    ];
+  }
+
+  return [
+    { time: '--:--:--.---', message: 'No sniper run has been started in this API session.' },
+  ];
+}
 
 function ConsoleLog({ log }) {
   const messageTone = log.tone === 'strong'
     ? 'font-bold text-court-green'
     : log.tone === 'success'
       ? 'text-court-green'
+      : log.tone === 'danger'
+        ? 'text-court-danger'
       : 'text-court-text/80';
 
   return (
@@ -42,27 +76,62 @@ function ConsoleLog({ log }) {
   );
 }
 
-function TargetHitPanel() {
+function RunStatePanel({ state }) {
+  const stateContent = {
+    idle: {
+      icon: Crosshair,
+      title: 'Standing By',
+      message: 'Arm the system and start a run when ready.',
+      tone: 'text-court-cyan',
+    },
+    running: {
+      icon: LoaderCircle,
+      title: 'Targeting',
+      message: 'CourtSniper automation is currently running.',
+      tone: 'text-court-cyan',
+    },
+    succeeded: {
+      icon: CheckCircle2,
+      title: 'Run Complete',
+      message: 'The automation process exited successfully.',
+      tone: 'text-court-green',
+    },
+    failed: {
+      icon: AlertTriangle,
+      title: 'Run Failed',
+      message: 'Review the backend terminal for execution details.',
+      tone: 'text-court-danger',
+    },
+  };
+  const content = stateContent[state] || stateContent.idle;
+  const StateIcon = content.icon;
+
   return (
-    <div className="relative flex min-h-[18rem] flex-col items-center justify-center overflow-hidden rounded-md border border-court-green bg-[radial-gradient(circle_at_center,rgba(31,117,5,0.42),rgba(1,18,8,0.96)_65%)] px-5 py-4 text-center shadow-green-strong">
+    <div className="relative flex min-h-[18rem] flex-col items-center justify-center overflow-hidden rounded-md border border-court-line-soft bg-[radial-gradient(circle_at_center,rgba(0,154,190,0.24),rgba(1,18,8,0.96)_65%)] px-5 py-4 text-center">
       <img
         src={assetUrl('shuttlecock-hit')}
         alt=""
-        className="relative h-36 w-full shrink-0 object-contain"
+        className={`relative h-36 w-full shrink-0 object-contain ${state === 'idle' ? 'opacity-35' : ''}`}
       />
 
-      <h3 className="relative mt-1 text-3xl font-bold uppercase tracking-tactical text-court-green drop-shadow-[0_0_12px_rgba(99,255,0,0.6)] sm:text-4xl">
-        Target Hit!
+      <h3 className={`relative mt-1 text-3xl font-bold uppercase tracking-tactical sm:text-4xl ${content.tone}`}>
+        {content.title}
       </h3>
-      <p className="relative mt-2 text-base font-semibold text-court-green">
-        Booking request sent.
+      <p className={`relative mt-2 text-sm font-semibold ${content.tone}`}>
+        {content.message}
       </p>
-      <CheckCircle2 aria-hidden="true" className="relative mt-3 h-8 w-8 text-court-green" />
+      <StateIcon
+        aria-hidden="true"
+        className={`relative mt-3 h-8 w-8 ${content.tone} ${state === 'running' ? 'animate-spin' : ''}`}
+      />
     </div>
   );
 }
 
 export default function ExecutionConsole() {
+  const { sniperRun } = useCourtSniper();
+  const logs = getRunLogs(sniperRun);
+
   return (
     <div className="tactical-panel">
       <SectionHeader icon={TerminalSquare} title="Execution Console" />
@@ -74,7 +143,7 @@ export default function ExecutionConsole() {
           ))}
         </div>
 
-        <TargetHitPanel />
+        <RunStatePanel state={sniperRun.state} />
       </div>
     </div>
   );
