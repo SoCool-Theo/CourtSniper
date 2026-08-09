@@ -4,6 +4,7 @@ import unittest
 
 from backend.src.sniper_process import (
     SniperAlreadyRunningError,
+    SniperLaunchError,
     SniperProcessManager,
     SniperScriptNotFoundError,
 )
@@ -111,6 +112,21 @@ class SniperProcessManagerTests(unittest.TestCase):
             missing_manager.start()
 
         self.assertEqual(self.factory.calls, [])
+
+    def test_start_wraps_operating_system_launch_errors(self):
+        def failing_factory(command, cwd):
+            raise OSError("private operating system detail")
+
+        manager = SniperProcessManager(
+            script_path=self.script_path,
+            process_factory=failing_factory,
+        )
+
+        with self.assertRaisesRegex(
+            SniperLaunchError,
+            "The sniper process could not be started.",
+        ):
+            manager.start()
 
 
 if __name__ == "__main__":

@@ -1,9 +1,24 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict
 import os
 import subprocess
 import sys
+
+try:
+    from .sniper_process import (
+        SniperAlreadyRunningError,
+        SniperLaunchError,
+        SniperProcessManager,
+        SniperScriptNotFoundError,
+    )
+except ImportError:
+    from sniper_process import (
+        SniperAlreadyRunningError,
+        SniperLaunchError,
+        SniperProcessManager,
+        SniperScriptNotFoundError,
+    )
 
 # Initialize the FastAPI application
 app = FastAPI(title="CourtSniper Web UI")
@@ -21,6 +36,26 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURRENT_DIR)
 
 ENV_FILE_PATH = os.path.join(ROOT_DIR, ".env")
+
+sniper_process_manager = SniperProcessManager()
+
+
+def _get_configured_status():
+    """Read only the kill-switch value required to authorize a run."""
+    if not os.path.exists(ENV_FILE_PATH):
+        return None
+
+    with open(ENV_FILE_PATH, "r", encoding="utf-8") as file:
+        for line in file:
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith("#") or "=" not in stripped_line:
+                continue
+
+            key, value = stripped_line.split("=", 1)
+            if key.strip() == "STATUS":
+                return value.strip().strip("\"'").upper()
+
+    return None
 
 @app.get("/api/status")
 def get_status():
@@ -85,3 +120,37 @@ def trigger_setup():
 
     except Exception as e:
         return {"error": f"Failed to launch script: {str(e)}"}
+
+
+@app.post("/api/run-sniper", status_code=status.HTTP_202_ACCEPTED)
+def trigger_sniper():
+    """Start the predefined sniper automation when the kill switch is armed."""
+    if _get_configured_status() != "ARMED":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="CourtSniper must be armed before starting a run.",
+        )
+
+    try:
+        run_status = sniper_process_manager.start()
+    except SniperAlreadyRunningError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(error),
+        ) from error
+    except (SniperScriptNotFoundError, SniperLaunchError) as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(error),
+        ) from error
+
+    return {
+        "message": "CourtSniper run started.",
+        "run": run_status.to_dict(),
+    }
+
+
+@app.get("/api/run-sniper/status")
+def get_sniper_run_status():
+    """Return the current non-sensitive sniper process state."""
+    return {"run": sniper_process_manager.get_status().to_dict()}

@@ -35,6 +35,10 @@ class SniperScriptNotFoundError(SniperProcessError):
     """Raised when the fixed sniper entry point is unavailable."""
 
 
+class SniperLaunchError(SniperProcessError):
+    """Raised when the operating system cannot launch the sniper process."""
+
+
 @dataclass(frozen=True)
 class SniperRunStatus:
     """Public, non-sensitive snapshot of the current run."""
@@ -78,10 +82,13 @@ class SniperProcessManager:
             if not self._script_path.is_file():
                 raise SniperScriptNotFoundError("The sniper entry point is unavailable.")
 
-            process = self._process_factory(
-                [self._python_executable, str(self._script_path)],
-                cwd=str(self._backend_dir),
-            )
+            try:
+                process = self._process_factory(
+                    [self._python_executable, str(self._script_path)],
+                    cwd=str(self._backend_dir),
+                )
+            except OSError as error:
+                raise SniperLaunchError("The sniper process could not be started.") from error
             self._process = process
             self._status = SniperRunStatus(
                 state="running",
