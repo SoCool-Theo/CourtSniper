@@ -9,15 +9,19 @@ try:
     from .sniper_process import (
         SniperAlreadyRunningError,
         SniperLaunchError,
+        SniperNotRunningError,
         SniperProcessManager,
         SniperScriptNotFoundError,
+        SniperStopError,
     )
 except ImportError:
     from sniper_process import (
         SniperAlreadyRunningError,
         SniperLaunchError,
+        SniperNotRunningError,
         SniperProcessManager,
         SniperScriptNotFoundError,
+        SniperStopError,
     )
 
 # Initialize the FastAPI application
@@ -159,3 +163,25 @@ def trigger_sniper():
 def get_sniper_run_status():
     """Return the current non-sensitive sniper process state."""
     return {"run": sniper_process_manager.get_status().to_dict()}
+
+
+@app.post("/api/run-sniper/stop")
+def stop_sniper():
+    """Stop the currently tracked sniper process group."""
+    try:
+        run_status = sniper_process_manager.stop()
+    except SniperNotRunningError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(error),
+        ) from error
+    except SniperStopError as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(error),
+        ) from error
+
+    return {
+        "message": "CourtSniper run stopped.",
+        "run": run_status.to_dict(),
+    }
