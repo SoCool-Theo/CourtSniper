@@ -97,6 +97,48 @@ class SniperApiTests(TestCase):
         api.sniper_process_manager = self.original_manager
 
     @patch.object(api, "_get_configured_status", return_value="ARMED")
+    def test_status_reports_an_armed_backend(self, configured_status):
+        response = api.get_status()
+
+        configured_status.assert_called_once_with()
+        self.assertEqual(
+            response,
+            {
+                "status": "online",
+                "execution_status": "ARMED",
+                "armed": True,
+            },
+        )
+
+    @patch.object(api, "_get_configured_status", return_value="DISARMED")
+    def test_status_reports_a_disarmed_backend(self, configured_status):
+        response = api.get_status()
+
+        configured_status.assert_called_once_with()
+        self.assertEqual(
+            response,
+            {
+                "status": "online",
+                "execution_status": "DISARMED",
+                "armed": False,
+            },
+        )
+
+    @patch.object(api, "_get_configured_status", return_value=None)
+    def test_status_reports_an_unknown_execution_status(self, configured_status):
+        response = api.get_status()
+
+        configured_status.assert_called_once_with()
+        self.assertEqual(
+            response,
+            {
+                "status": "online",
+                "execution_status": "UNKNOWN",
+                "armed": False,
+            },
+        )
+
+    @patch.object(api, "_get_configured_status", return_value="ARMED")
     def test_trigger_sniper_starts_an_armed_run(self, configured_status):
         response = api.trigger_sniper()
 
