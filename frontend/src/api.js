@@ -59,3 +59,7 @@ export function triggerSniperRun() {
 export function fetchSniperRunStatus() {
   return apiRequest('/run-sniper/status');
 }
+
+export function stopSniperRun() {
+  return apiRequest('/run-sniper/stop', { method: 'POST' });
+}

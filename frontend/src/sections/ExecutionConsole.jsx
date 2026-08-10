@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Crosshair,
   LoaderCircle,
+  Square,
   TerminalSquare,
 } from 'lucide-react';
 import { assetUrl } from '../assets';
@@ -26,6 +27,20 @@ function formatTimestamp(timestamp) {
 }
 
 function getRunLogs(run) {
+  if (run.state === 'stopping') {
+    return [
+      { time: formatTimestamp(run.started_at), message: `CourtSniper process ${run.pid ?? ''} started.` },
+      { time: '--:--:--.---', message: 'Cancellation requested. Waiting for process cleanup...', tone: 'warning' },
+    ];
+  }
+
+  if (run.state === 'stopped') {
+    return [
+      { time: formatTimestamp(run.started_at), message: `CourtSniper process ${run.pid ?? ''} started.` },
+      { time: formatTimestamp(run.finished_at), message: 'CourtSniper run stopped by operator.', tone: 'warning' },
+    ];
+  }
+
   if (run.state === 'running') {
     return [
       { time: formatTimestamp(run.started_at), message: `CourtSniper process ${run.pid ?? ''} started.` },
@@ -59,6 +74,8 @@ function ConsoleLog({ log }) {
       ? 'text-court-green'
       : log.tone === 'danger'
         ? 'text-court-danger'
+        : log.tone === 'warning'
+          ? 'text-court-warning'
       : 'text-court-text/80';
 
   return (
@@ -89,6 +106,18 @@ function RunStatePanel({ state }) {
       title: 'Targeting',
       message: 'CourtSniper automation is currently running.',
       tone: 'text-court-cyan',
+    },
+    stopping: {
+      icon: LoaderCircle,
+      title: 'Stopping',
+      message: 'Closing the active automation process.',
+      tone: 'text-court-warning',
+    },
+    stopped: {
+      icon: Square,
+      title: 'Run Stopped',
+      message: 'The automation was cancelled by the operator.',
+      tone: 'text-court-warning',
     },
     succeeded: {
       icon: CheckCircle2,
@@ -122,7 +151,7 @@ function RunStatePanel({ state }) {
       </p>
       <StateIcon
         aria-hidden="true"
-        className={`relative mt-3 h-8 w-8 ${content.tone} ${state === 'running' ? 'animate-spin' : ''}`}
+        className={`relative mt-3 h-8 w-8 ${content.tone} ${['running', 'stopping'].includes(state) ? 'animate-spin' : ''}`}
       />
     </div>
   );
