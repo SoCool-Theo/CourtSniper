@@ -58,7 +58,7 @@ The responsive CourtSniper dashboard includes:
 * Scheduler, system-status, and execution-console panels.
 * Desktop, tablet, and mobile layouts with accessible navigation.
 
-The **Start Sniper** control uses the guarded backend API and is enabled only while the backend is online, the configuration is armed, and no run is active. The dashboard polls the API while the process runs and reports its lifecycle state. **Test Run** and scheduler controls remain disabled until their dedicated backend behavior is implemented. The frontend never executes local Python files directly.
+The **Start Sniper** control uses the guarded backend API and is enabled only while the backend is online, the configuration is armed, and no run is active. While automation is running, the control becomes **Stop Sniper** and requests graceful cancellation. The dashboard reports `stopping` until browser cleanup completes and then reports `stopped`. **Test Run** and scheduler controls remain disabled until their dedicated backend behavior is implemented. The frontend never executes local Python files directly.
 
 ---
 
@@ -132,16 +132,19 @@ The current frontend uses the following API routes:
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/status` | Check whether the backend is available. |
+| `GET` | `/api/status` | Check backend availability and the current armed state. |
 | `GET` | `/api/config` | Load the current booking configuration. |
 | `POST` | `/api/config` | Save booking configuration and armed status. |
 | `POST` | `/api/run-setup` | Request the manual login/session setup browser. |
 | `POST` | `/api/run-sniper` | Start one controlled sniper run when armed. |
 | `GET` | `/api/run-sniper/status` | Read the current sniper process lifecycle state. |
+| `POST` | `/api/run-sniper/stop` | Stop the currently tracked sniper run. |
 
 `POST /api/run-sniper` executes only the predefined `backend/src/sniper.py` entry point. It returns `202 Accepted` when a run starts and rejects disarmed or concurrent requests with `409 Conflict`. The endpoint never accepts commands, script paths, booking URLs, or messages from the request.
 
-`GET /api/run-sniper/status` returns `idle`, `running`, `succeeded`, or `failed`, together with non-sensitive process metadata such as timestamps, PID, and exit code. A successful process exit confirms that the automation finished without a process-level error; it does not independently guarantee Messenger delivery. Run state is held in memory and resets when the FastAPI service restarts.
+`GET /api/run-sniper/status` returns `idle`, `running`, `stopping`, `stopped`, `succeeded`, or `failed`, together with non-sensitive process metadata such as timestamps, PID, and exit code. A successful process exit confirms that the automation finished without a process-level error; it does not independently guarantee Messenger delivery. Run state is held in memory and resets when the FastAPI service restarts.
+
+`POST /api/run-sniper/stop` accepts no PID, command, or path from the client. It targets only the process group created and tracked by the API, requests graceful cancellation first, and uses an exact-PID process-tree fallback if cleanup does not finish within five seconds. It returns `409 Conflict` when no run is active. Cancellation before dispatch prevents the booking message from being sent; cancellation after dispatch closes the browser but cannot retract a message that was already submitted.
 
 ---
 
