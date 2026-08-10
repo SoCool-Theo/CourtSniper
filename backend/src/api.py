@@ -59,7 +59,12 @@ def _get_configured_status():
 
 @app.get("/api/status")
 def get_status():
-    return {"status": "CourtSniper backend is armed and online!"}
+    execution_status = _get_configured_status() or "UNKNOWN"
+    return {
+        "status": "online",
+        "execution_status": execution_status,
+        "armed": execution_status == "ARMED",
+    }
 
 @app.get("/api/config")
 def get_config():
