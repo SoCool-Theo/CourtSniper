@@ -61,8 +61,10 @@ from backend.src import api
 from backend.src.sniper_process import (
     SniperAlreadyRunningError,
     SniperLaunchError,
+    SniperNotRunningError,
     SniperRunStatus,
     SniperScriptNotFoundError,
+    SniperStopError,
 )
 
 
@@ -70,6 +72,8 @@ class FakeSniperProcessManager:
     def __init__(self):
         self.start_calls = 0
         self.start_error = None
+        self.stop_calls = 0
+        self.stop_error = None
         self.status = SniperRunStatus()
 
     def start(self):
@@ -84,6 +88,19 @@ class FakeSniperProcessManager:
         return self.status
 
     def get_status(self):
+        return self.status
+
+    def stop(self):
+        self.stop_calls += 1
+        if self.stop_error:
+            raise self.stop_error
+        self.status = SniperRunStatus(
+            state="stopped",
+            pid=4321,
+            started_at="2026-08-10T00:00:00+00:00",
+            finished_at="2026-08-10T00:00:30+00:00",
+            exit_code=130,
+        )
         return self.status
 
 
@@ -234,6 +251,45 @@ class SniperApiTests(TestCase):
             },
         )
 
+    def test_stop_sniper_returns_the_stopped_run(self):
+        response = api.stop_sniper()
+
+        self.assertEqual(self.manager.stop_calls, 1)
+        self.assertEqual(response["message"], "CourtSniper run stopped.")
+        self.assertEqual(response["run"]["state"], "stopped")
+        self.assertEqual(response["run"]["pid"], 4321)
+        self.assertEqual(response["run"]["exit_code"], 130)
+
+    def test_stop_sniper_rejects_a_request_without_an_active_run(self):
+        self.manager.stop_error = SniperNotRunningError(
+            "No sniper run is currently active."
+        )
+
+        with self.assertRaises(HTTPException) as context:
+            api.stop_sniper()
+
+        self.assertEqual(self.manager.stop_calls, 1)
+        self.assertEqual(context.exception.status_code, 409)
+        self.assertEqual(
+            context.exception.detail,
+            "No sniper run is currently active.",
+        )
+
+    def test_stop_sniper_reports_a_safe_termination_error(self):
+        self.manager.stop_error = SniperStopError(
+            "The sniper process could not be stopped."
+        )
+
+        with self.assertRaises(HTTPException) as context:
+            api.stop_sniper()
+
+        self.assertEqual(self.manager.stop_calls, 1)
+        self.assertEqual(context.exception.status_code, 500)
+        self.assertEqual(
+            context.exception.detail,
+            "The sniper process could not be stopped.",
+        )
+
 
 class SniperApiRouteContractTests(TestCase):
     def test_run_sniper_routes_are_registered(self):
@@ -249,5 +305,9 @@ class SniperApiRouteContractTests(TestCase):
         )
         self.assertIn(
             ("/api/run-sniper/status", ("GET",), 200),
+            route_contracts,
+        )
+        self.assertIn(
+            ("/api/run-sniper/stop", ("POST",), 200),
             route_contracts,
         )

@@ -4,6 +4,7 @@ import {
   fetchConfig,
   fetchSniperRunStatus,
   saveConfig,
+  stopSniperRun,
   triggerSetupSession,
   triggerSniperRun,
 } from '../api';
@@ -25,6 +26,7 @@ export default function CourtSniperProvider({ children }) {
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [isLaunchingSetup, setIsLaunchingSetup] = useState(false);
   const [isStartingSniper, setIsStartingSniper] = useState(false);
+  const [isStoppingSniper, setIsStoppingSniper] = useState(false);
   const [apiError, setApiError] = useState('');
   const [sniperError, setSniperError] = useState('');
 
@@ -148,6 +150,41 @@ export default function CourtSniperProvider({ children }) {
     }
   }, []);
 
+  const stopActiveSniperRun = useCallback(async () => {
+    setIsStoppingSniper(true);
+    setSniperError('');
+    setSniperRun((current) => (
+      current.state === 'running'
+        ? { ...current, state: 'stopping' }
+        : current
+    ));
+
+    try {
+      const result = await stopSniperRun();
+      setSniperRun(result?.run || IDLE_SNIPER_RUN);
+      setConnectionStatus('online');
+      return result;
+    } catch (error) {
+      try {
+        const statusResult = await fetchSniperRunStatus();
+        setSniperRun(statusResult?.run || IDLE_SNIPER_RUN);
+        setConnectionStatus('online');
+      } catch {
+        setConnectionStatus('offline');
+        setSniperRun((current) => (
+          current.state === 'stopping'
+            ? { ...current, state: 'running' }
+            : current
+        ));
+      }
+
+      setSniperError(error.message || 'Unable to stop CourtSniper.');
+      throw error;
+    } finally {
+      setIsStoppingSniper(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (sniperRun.state !== 'running') return undefined;
 
@@ -184,6 +221,7 @@ export default function CourtSniperProvider({ children }) {
         isSavingConfig,
         isLaunchingSetup,
         isStartingSniper,
+        isStoppingSniper,
         apiError,
         sniperError,
         refreshConfiguration,
@@ -191,6 +229,7 @@ export default function CourtSniperProvider({ children }) {
         launchSetupSession,
         refreshSniperRun,
         startSniperRun,
+        stopActiveSniperRun,
       }}
     >
       {children}

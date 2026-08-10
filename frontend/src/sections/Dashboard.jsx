@@ -6,6 +6,7 @@ import {
   FlaskConical,
   Info,
   Send,
+  Square,
 } from 'lucide-react';
 import { assetUrl } from '../assets';
 import Countdown from '../components/Countdown';
@@ -49,13 +50,17 @@ export default function Dashboard() {
     isLoadingConfig,
     isSavingConfig,
     isStartingSniper,
+    isStoppingSniper,
     updateConfiguration,
     startSniperRun,
+    stopActiveSniperRun,
   } = useCourtSniper();
   const [statusFeedback, setStatusFeedback] = useState('');
   const [runFeedback, setRunFeedback] = useState('');
+  const [runFeedbackTone, setRunFeedbackTone] = useState('success');
   const isArmed = config.STATUS === 'ARMED';
-  const isRunActive = sniperRun.state === 'running';
+  const isRunActive = ['running', 'stopping'].includes(sniperRun.state);
+  const canStopSniper = sniperRun.state === 'running' && !isStoppingSniper;
   const canStartSniper = connectionStatus === 'online'
     && isArmed
     && !isLoadingConfig
@@ -80,9 +85,24 @@ export default function Dashboard() {
 
     try {
       const result = await startSniperRun();
+      setRunFeedbackTone('success');
       setRunFeedback(result?.message || 'CourtSniper run started.');
     } catch (error) {
+      setRunFeedbackTone('error');
       setRunFeedback(error.message || 'Unable to start CourtSniper.');
+    }
+  };
+
+  const handleStopSniper = async () => {
+    setRunFeedback('');
+
+    try {
+      const result = await stopActiveSniperRun();
+      setRunFeedbackTone('warning');
+      setRunFeedback(result?.message || 'CourtSniper run stopped.');
+    } catch (error) {
+      setRunFeedbackTone('error');
+      setRunFeedback(error.message || 'Unable to stop CourtSniper.');
     }
   };
 
@@ -209,23 +229,41 @@ export default function Dashboard() {
 
         <button
           type="button"
-          onClick={handleStartSniper}
-          disabled={!canStartSniper}
-          title={isArmed ? 'Start the configured CourtSniper run' : 'Arm CourtSniper before starting'}
-          className={`tactical-button tactical-button--primary min-h-[4rem] px-5 ${
-            canStartSniper ? '' : 'cursor-not-allowed opacity-55'
+          onClick={isRunActive ? handleStopSniper : handleStartSniper}
+          disabled={isRunActive ? !canStopSniper : !canStartSniper}
+          title={isRunActive
+            ? 'Stop the active CourtSniper run'
+            : isArmed
+              ? 'Start the configured CourtSniper run'
+              : 'Arm CourtSniper before starting'}
+          className={`tactical-button min-h-[4rem] px-5 ${
+            isRunActive
+              ? 'border-court-danger bg-court-danger/10 text-court-danger hover:bg-court-danger/20'
+              : 'tactical-button--primary'
+          } ${
+            (isRunActive ? canStopSniper : canStartSniper) ? '' : 'cursor-not-allowed opacity-55'
           }`}
         >
-          <Crosshair aria-hidden="true" className="h-8 w-8" />
+          {isRunActive
+            ? <Square aria-hidden="true" className="h-7 w-7 fill-current" />
+            : <Crosshair aria-hidden="true" className="h-8 w-8" />}
           <span className="text-left">
             <span className="block text-lg leading-none">
-              {isStartingSniper ? 'Starting...' : isRunActive ? 'Sniper Running' : 'Start Sniper'}
+              {isStoppingSniper || sniperRun.state === 'stopping'
+                ? 'Stopping...'
+                : isRunActive
+                  ? 'Stop Sniper'
+                  : isStartingSniper
+                    ? 'Starting...'
+                    : 'Start Sniper'}
             </span>
             <span className="mt-1 block text-[0.55rem] tracking-label">
-              {isRunActive ? `Process ${sniperRun.pid ?? 'active'}` : 'Send booking message'}
+              {isRunActive ? `Stop process ${sniperRun.pid ?? 'active'}` : 'Send booking message'}
             </span>
           </span>
-          <Send aria-hidden="true" className="h-4 w-4 opacity-70" />
+          {isRunActive
+            ? <Square aria-hidden="true" className="h-4 w-4 opacity-70" />
+            : <Send aria-hidden="true" className="h-4 w-4 opacity-70" />}
         </button>
 
         <button
@@ -240,9 +278,11 @@ export default function Dashboard() {
 
         {(runFeedback || sniperError) && (
           <p className={`text-[0.68rem] font-semibold lg:col-start-2 ${
-            (runFeedback || '').includes('started') && !sniperError
-              ? 'text-court-green'
-              : 'text-court-danger'
+            sniperError || runFeedbackTone === 'error'
+              ? 'text-court-danger'
+              : runFeedbackTone === 'warning'
+                ? 'text-court-warning'
+                : 'text-court-green'
           }`}
           >
             {sniperError || runFeedback}
