@@ -62,7 +62,9 @@ CourtSniper/
 * **`config.py`**: Loads the target configuration without requiring changes to the automation engine.
 * **`scheduled_runner.py`**: Safely starts or reuses the local API for a scheduled run and monitors the existing process manager.
 * **`scheduler_models.py`**: Validates selected booking weekdays and warm-up values and calculates local trigger times.
-* **`setup_session.py`**: Handles manual authentication and creates the persistent browser profile.
+* **`setup_session.py`**: Handles manual authentication, opens the configured conversation, and owns the single-instance setup guard while Chrome is open.
+* **`setup_session_guard.py`**: Provides the project-scoped Windows named mutex that prevents concurrent login browsers across processes.
+* **`setup_session_process.py`**: Serializes API launch requests and reuses an active setup process or cross-process login window.
 * **`sniper.py`**: Runs the precision booking workflow.
 * **`windows_scheduler.py`**: Manages only the fixed, adapter-owned `CourtSniper` Windows task.
 * **`frontend/src/` directory**: Contains the dashboard components, responsive sections, shared state, and API client.
@@ -183,6 +185,8 @@ The dashboard and fixed scheduled runner use the following local API routes:
 
 `POST /api/run-setup` accepts no URL, command, executable path, or script path from the client. It launches only the predefined `backend/src/setup_session.py` entry point, which reads `TARGET_URL` from the backend's internal configuration at runtime. The API request cannot override the login destination.
 
+Setup launch requests are idempotent while login setup is active. The backend serializes simultaneous requests, tracks the child it launched, and checks a project-scoped Windows named mutex to detect setup processes that survived an API restart or were started manually. A duplicate request launches no additional browser and returns a successful response instructing the user to continue in the existing window. The setup script also acquires the mutex before reading configuration or loading Playwright, closing the remaining race between separate API instances.
+
 `POST /api/run-sniper` executes only the predefined `backend/src/sniper.py` entry point. It returns `202 Accepted` when a run starts and rejects disarmed or concurrent requests with `409 Conflict`. The endpoint never accepts commands, script paths, booking URLs, or messages from the request.
 
 `GET /api/run-sniper/status` returns `idle`, `running`, `stopping`, `stopped`, `succeeded`, or `failed`, together with non-sensitive process metadata such as timestamps, PID, and exit code. A successful process exit confirms that the automation finished without a process-level error; it does not independently guarantee Messenger delivery. Run state is held in memory and resets when the FastAPI service restarts.
@@ -204,7 +208,9 @@ Scheduler errors use sanitized HTTP responses: validation errors return `422`, s
 * **Validation and Fallback**: URLs using another scheme or host, malformed URLs, and URLs containing embedded username or password credentials are rejected. A missing or rejected value falls back to `https://www.facebook.com/messages/`.
 * **Private Logging**: Console messages identify whether the configured conversation or fallback inbox is being used without printing the complete conversation URL.
 * **Session Persistence**: The script launches a visible Google Chrome window with the existing persistent profile, allowing you to manually log into Facebook Messenger and solve any Two-Factor Authentication (2FA) challenges.
-* **Caching Cookies**: Once the configured conversation or fallback inbox loads completely, close the browser window to permanently cache your session cookies inside the local `user_data/` folder.
+* **Single Setup Window**: Repeated button clicks, simultaneous API requests, API restarts, and manual script launches reuse or defer to the active setup window instead of opening the persistent profile twice.
+* **Completion and Cleanup**: Close the login browser after the configured conversation or fallback inbox loads. Closing Chrome finishes setup immediately; otherwise, the window closes after five minutes. The named mutex is released after normal completion, interruption, or failure, and Windows releases it automatically if the setup process crashes.
+* **Caching Cookies and Re-authentication**: The persistent profile retains the Facebook login inside the local `user_data/` folder, so setup does not run again automatically. Use **Open Login Browser** again only when you intentionally need to inspect the conversation or re-authenticate after Facebook invalidates the session.
 
 ---
 
@@ -276,7 +282,7 @@ npm.cmd run lint
 npm.cmd run build
 ```
 
-All automated Windows scheduler tests use injected command, HTTP, clock, and process implementations. They do not create, update, enable, disable, query, or delete a real Windows task, and they do not start a real API or sniper process. Session-setup tests inject configuration, time, Playwright, browser, and page objects; they do not read the private `.env`, launch a real browser, or access the persistent `user_data/` profile.
+All automated Windows scheduler tests use injected command, HTTP, clock, and process implementations. They do not create, update, enable, disable, query, or delete a real Windows task, and they do not start a real API or sniper process. Session-setup tests inject configuration, Playwright, browser, page, Win32 mutex, guard, and process objects; they do not read the private `.env`, create a real mutex or process, launch a real browser, or access the persistent `user_data/` profile.
 
 ---
 
