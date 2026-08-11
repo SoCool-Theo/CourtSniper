@@ -172,7 +172,7 @@ The dashboard and fixed scheduled runner use the following local API routes:
 | `GET` | `/api/status` | Confirm CourtSniper service identity, availability, and armed state. |
 | `GET` | `/api/config` | Load the current booking configuration. |
 | `POST` | `/api/config` | Save booking configuration and armed status. |
-| `POST` | `/api/run-setup` | Request the manual login/session setup browser. |
+| `POST` | `/api/run-setup` | Open the manual login browser at the internally configured booking conversation. |
 | `POST` | `/api/run-sniper` | Start one controlled sniper run when armed. |
 | `GET` | `/api/run-sniper/status` | Read the current sniper process lifecycle state. |
 | `POST` | `/api/run-sniper/stop` | Stop the currently tracked sniper run. |
@@ -180,6 +180,8 @@ The dashboard and fixed scheduled runner use the following local API routes:
 | `POST` | `/api/scheduler/config` | Configure selected booking weekdays and warm-up using the existing target time. |
 | `POST` | `/api/scheduler/enable` | Enable future triggers for the configured fixed task. |
 | `POST` | `/api/scheduler/disable` | Disable future triggers without stopping an active run. |
+
+`POST /api/run-setup` accepts no URL, command, executable path, or script path from the client. It launches only the predefined `backend/src/setup_session.py` entry point, which reads `TARGET_URL` from the backend's internal configuration at runtime. The API request cannot override the login destination.
 
 `POST /api/run-sniper` executes only the predefined `backend/src/sniper.py` entry point. It returns `202 Accepted` when a run starts and rejects disarmed or concurrent requests with `409 Conflict`. The endpoint never accepts commands, script paths, booking URLs, or messages from the request.
 
@@ -197,9 +199,12 @@ Scheduler errors use sanitized HTTP responses: validation errors return `422`, s
 
 ## Manual Authentication Phase (`setup_session.py`)
 
-* **Mid-Week Preparation**: Execute `python src/setup_session.py` in your terminal once during the week prior to your booking day. Make sure you are in the `backend/` directory.
-* **Session Persistence**: This script launches a visible Google Chrome window, allowing you to manually log into Facebook Messenger and solve any Two-Factor Authentication (2FA) challenges.
-* **Caching Cookies**: Once your inbox loads completely, close the browser window to permanently cache your session cookies inside the local `user_data/` folder.
+* **Mid-Week Preparation**: Choose **Open Login Browser** in the Session panel, or execute `python src/setup_session.py` from the `backend/` directory, once during the week prior to your booking day.
+* **Configured Destination**: The script reads the saved `TARGET_URL` internally and opens that booking conversation when it is an HTTPS URL on `facebook.com`, `messenger.com`, or one of their subdomains.
+* **Validation and Fallback**: URLs using another scheme or host, malformed URLs, and URLs containing embedded username or password credentials are rejected. A missing or rejected value falls back to `https://www.facebook.com/messages/`.
+* **Private Logging**: Console messages identify whether the configured conversation or fallback inbox is being used without printing the complete conversation URL.
+* **Session Persistence**: The script launches a visible Google Chrome window with the existing persistent profile, allowing you to manually log into Facebook Messenger and solve any Two-Factor Authentication (2FA) challenges.
+* **Caching Cookies**: Once the configured conversation or fallback inbox loads completely, close the browser window to permanently cache your session cookies inside the local `user_data/` folder.
 
 ---
 
@@ -271,7 +276,7 @@ npm.cmd run lint
 npm.cmd run build
 ```
 
-All automated Windows scheduler tests use injected command, HTTP, clock, and process implementations. They do not create, update, enable, disable, query, or delete a real Windows task, and they do not start a real API or sniper process.
+All automated Windows scheduler tests use injected command, HTTP, clock, and process implementations. They do not create, update, enable, disable, query, or delete a real Windows task, and they do not start a real API or sniper process. Session-setup tests inject configuration, time, Playwright, browser, and page objects; they do not read the private `.env`, launch a real browser, or access the persistent `user_data/` profile.
 
 ---
 
