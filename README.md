@@ -33,10 +33,13 @@ CourtSniper/
 │   ├── .venv/                   # Isolated Python virtual environment
 │   ├── user_data/               # Cached Facebook/Chrome session cookies (hidden/ignored)
 │   ├── src/                     
-│   │   ├── api.py               # FastAPI backend server (control wrapper)
+│   │   ├── api.py               # FastAPI backend server and guarded API routes
 │   │   ├── config.py            # Loads configuration variables from .env
+│   │   ├── scheduled_runner.py  # Fixed scheduled API bootstrap and run monitor
+│   │   ├── scheduler_models.py  # Schedule validation and next-run calculation
 │   │   ├── setup_session.py     # Manual login script for caching session cookies
-│   │   └── sniper.py            # High-precision Playwright execution engine
+│   │   ├── sniper.py            # High-precision Playwright execution engine
+│   │   └── windows_scheduler.py # Fixed Windows Task Scheduler adapter
 │   ├── .env                     # Hidden environment configuration file
 │   ├── .env.example             # Safe template file for environment variables
 │   ├── .gitignore               # Excludes .env, .venv, and user_data/ from Git
