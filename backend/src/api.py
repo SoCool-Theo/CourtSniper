@@ -5,6 +5,8 @@ import os
 import subprocess
 import sys
 
+from pydantic import ValidationError
+
 try:
     from .sniper_process import (
         SniperAlreadyRunningError,
@@ -22,6 +24,37 @@ except ImportError:
         SniperProcessManager,
         SniperScriptNotFoundError,
         SniperStopError,
+    )
+
+try:
+    from .scheduler_models import BookingTargetTime, ScheduleConfig
+    from .windows_scheduler import (
+        SchedulerTaskNotConfiguredError,
+        SchedulerTaskNotInstalledError,
+        SchedulerTaskOwnershipError,
+        WindowsSchedulerError,
+        WindowsSchedulerOperationError,
+        WindowsSchedulerPermissionError,
+        WindowsSchedulerStatus,
+        WindowsSchedulerTimeoutError,
+        WindowsSchedulerUnavailableError,
+        WindowsSchedulerUnsupportedError,
+        WindowsTaskSchedulerAdapter,
+    )
+except ImportError:
+    from scheduler_models import BookingTargetTime, ScheduleConfig
+    from windows_scheduler import (
+        SchedulerTaskNotConfiguredError,
+        SchedulerTaskNotInstalledError,
+        SchedulerTaskOwnershipError,
+        WindowsSchedulerError,
+        WindowsSchedulerOperationError,
+        WindowsSchedulerPermissionError,
+        WindowsSchedulerStatus,
+        WindowsSchedulerTimeoutError,
+        WindowsSchedulerUnavailableError,
+        WindowsSchedulerUnsupportedError,
+        WindowsTaskSchedulerAdapter,
     )
 
 # Initialize the FastAPI application
@@ -42,12 +75,28 @@ ROOT_DIR = os.path.dirname(CURRENT_DIR)
 ENV_FILE_PATH = os.path.join(ROOT_DIR, ".env")
 
 sniper_process_manager = SniperProcessManager()
+scheduler_adapter = WindowsTaskSchedulerAdapter()
+
+PUBLIC_CONFIG_KEYS = {
+    "TARGET_URL",
+    "BOOKING_MESSAGE",
+    "TARGET_HOUR",
+    "TARGET_MINUTE",
+    "TARGET_SECOND",
+    "STATUS",
+}
+EDITABLE_CONFIG_KEYS = PUBLIC_CONFIG_KEYS
+TARGET_TIME_KEYS = {"TARGET_HOUR", "TARGET_MINUTE", "TARGET_SECOND"}
 
 
-def _get_configured_status():
-    """Read only the kill-switch value required to authorize a run."""
+class BookingTargetConfigurationError(ValueError):
+    """Raised when the scheduler cannot use the existing booking target time."""
+
+
+def _read_config_values(allowed_keys: set[str]) -> dict[str, str]:
+    values = {}
     if not os.path.exists(ENV_FILE_PATH):
-        return None
+        return values
 
     with open(ENV_FILE_PATH, "r", encoding="utf-8") as file:
         for line in file:
@@ -56,10 +105,89 @@ def _get_configured_status():
                 continue
 
             key, value = stripped_line.split("=", 1)
-            if key.strip() == "STATUS":
-                return value.strip().strip("\"'").upper()
+            key = key.strip()
+            if key in allowed_keys:
+                values[key] = value.strip().strip("\"'")
+    return values
 
-    return None
+
+def _get_configured_status():
+    """Read only the kill-switch value required to authorize a run."""
+    status_value = _read_config_values({"STATUS"}).get("STATUS")
+    return status_value.upper() if status_value else None
+
+
+def _get_booking_target_time() -> BookingTargetTime:
+    """Read and validate only the existing target-time fields."""
+    values = _read_config_values(TARGET_TIME_KEYS)
+    if any(key not in values for key in TARGET_TIME_KEYS):
+        raise BookingTargetConfigurationError(
+            "Configure a valid booking target time before scheduling CourtSniper."
+        )
+
+    try:
+        return BookingTargetTime(
+            hour=int(values["TARGET_HOUR"]),
+            minute=int(values["TARGET_MINUTE"]),
+            second=int(values["TARGET_SECOND"]),
+        )
+    except (ValueError, ValidationError) as error:
+        raise BookingTargetConfigurationError(
+            "Configure a valid booking target time before scheduling CourtSniper."
+        ) from error
+
+
+def _try_get_booking_target_time() -> BookingTargetTime | None:
+    try:
+        return _get_booking_target_time()
+    except BookingTargetConfigurationError:
+        return None
+
+
+def _scheduler_payload(snapshot: WindowsSchedulerStatus) -> dict[str, object]:
+    payload = snapshot.model_dump(mode="json")
+    configuration = snapshot.configuration
+    payload["configured"] = configuration is not None
+
+    if configuration is None:
+        payload["configuration_in_sync"] = None
+    else:
+        target = _try_get_booking_target_time()
+        payload["configuration_in_sync"] = (
+            target is not None and configuration.target_time == target.as_time()
+        )
+    return payload
+
+
+def _scheduler_http_exception(error: Exception) -> HTTPException:
+    if isinstance(error, WindowsSchedulerPermissionError):
+        return HTTPException(status_code=403, detail=str(error))
+    if isinstance(error, WindowsSchedulerTimeoutError):
+        return HTTPException(status_code=504, detail=str(error))
+    if isinstance(
+        error,
+        (WindowsSchedulerUnsupportedError, WindowsSchedulerUnavailableError),
+    ):
+        return HTTPException(status_code=503, detail=str(error))
+    if isinstance(
+        error,
+        (
+            SchedulerTaskOwnershipError,
+            SchedulerTaskNotInstalledError,
+            SchedulerTaskNotConfiguredError,
+            BookingTargetConfigurationError,
+        ),
+    ):
+        return HTTPException(status_code=409, detail=str(error))
+    if isinstance(error, (WindowsSchedulerOperationError, WindowsSchedulerError)):
+        return HTTPException(
+            status_code=500,
+            detail="Windows Task Scheduler operation failed.",
+        )
+    return HTTPException(
+        status_code=500,
+        detail="Windows Task Scheduler operation failed.",
+    )
 
 @app.get("/api/status")
 def get_status():
@@ -72,21 +200,18 @@ def get_status():
 
 @app.get("/api/config")
 def get_config():
-    """Reads the current .env file and sends it to the frontend as JSON."""
-    config = {}
-    if os.path.exists(ENV_FILE_PATH):
-        with open(ENV_FILE_PATH, "r", encoding="utf-8") as file:
-            for line in file:
-                # Ignore empty lines and comments
-                if "=" in line and not line.strip().startswith("#"):
-                    key, value = line.strip().split("=", 1)
-                    # Strip out any extra quotes used in the .env file
-                    config[key] = value.strip("\"'")
-    return config
+    """Return only the configuration fields required by the dashboard."""
+    return _read_config_values(PUBLIC_CONFIG_KEYS)
 
 @app.post("/api/config")
 def update_config(updates: Dict[str, str]):
     """Receives JSON from the frontend and overwrites the .env file."""
+    if any(key not in EDITABLE_CONFIG_KEYS for key in updates):
+        raise HTTPException(
+            status_code=422,
+            detail="The request contains an unsupported configuration field.",
+        )
+
     if not os.path.exists(ENV_FILE_PATH):
         return {"error": ".env file missing!"}
 
@@ -159,13 +284,13 @@ def trigger_sniper():
     }
 
 
-@app.get("/api/run-sniper/status")
+@app.get("/api/run-sniper/status", status_code=200)
 def get_sniper_run_status():
     """Return the current non-sensitive sniper process state."""
     return {"run": sniper_process_manager.get_status().to_dict()}
 
 
-@app.post("/api/run-sniper/stop")
+@app.post("/api/run-sniper/stop", status_code=200)
 def stop_sniper():
     """Stop the currently tracked sniper process group."""
     try:
@@ -184,4 +309,61 @@ def stop_sniper():
     return {
         "message": "CourtSniper run stopped.",
         "run": run_status.to_dict(),
+    }
+
+
+@app.get("/api/scheduler", status_code=200)
+def get_scheduler_status():
+    """Return a sanitized snapshot of the fixed Windows scheduled task."""
+    try:
+        snapshot = scheduler_adapter.get_status()
+    except WindowsSchedulerError as error:
+        raise _scheduler_http_exception(error) from error
+    return _scheduler_payload(snapshot)
+
+
+@app.post("/api/scheduler/config", status_code=200)
+def configure_scheduler(config: ScheduleConfig):
+    """Install or update the fixed task using the existing booking target."""
+    try:
+        target = _get_booking_target_time()
+        snapshot = scheduler_adapter.configure(config, target)
+    except (WindowsSchedulerError, BookingTargetConfigurationError) as error:
+        raise _scheduler_http_exception(error) from error
+    return {
+        "message": "CourtSniper schedule configured.",
+        "scheduler": _scheduler_payload(snapshot),
+    }
+
+
+@app.post("/api/scheduler/enable", status_code=200)
+def enable_scheduler():
+    """Enable future runs after confirming the target time is current."""
+    try:
+        current = scheduler_adapter.get_status()
+        if current.configuration is not None:
+            target = _get_booking_target_time()
+            if current.configuration.target_time != target.as_time():
+                raise SchedulerTaskNotConfiguredError(
+                    "Save the scheduler configuration for the current booking target before enabling it."
+                )
+        snapshot = scheduler_adapter.enable()
+    except (WindowsSchedulerError, BookingTargetConfigurationError) as error:
+        raise _scheduler_http_exception(error) from error
+    return {
+        "message": "CourtSniper schedule enabled.",
+        "scheduler": _scheduler_payload(snapshot),
+    }
+
+
+@app.post("/api/scheduler/disable", status_code=200)
+def disable_scheduler():
+    """Disable future triggers without stopping an active sniper run."""
+    try:
+        snapshot = scheduler_adapter.disable()
+    except WindowsSchedulerError as error:
+        raise _scheduler_http_exception(error) from error
+    return {
+        "message": "CourtSniper schedule disabled.",
+        "scheduler": _scheduler_payload(snapshot),
     }
