@@ -405,9 +405,9 @@ export default function Scheduler() {
         <div className="flex items-start gap-3 rounded-md border border-court-warning/45 bg-court-inset/75 px-4 py-3">
           <CalendarCheck aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-court-cyan" />
           <p className="text-[0.7rem] font-medium leading-relaxed text-court-text/80">
-            The Windows task triggers the local FastAPI service. CourtSniper still starts only when
-            execution status is ARMED. Use Stop Sniper for an active run; disabling here affects only
-            future triggers.
+            The Windows task starts the local API automatically when needed. CourtSniper still runs
+            only when execution status is ARMED. Use Stop Sniper for an active run; disabling here
+            affects only future triggers.
           </p>
         </div>
 

@@ -193,6 +193,7 @@ def _scheduler_http_exception(error: Exception) -> HTTPException:
 def get_status():
     execution_status = _get_configured_status() or "UNKNOWN"
     return {
+        "service": "CourtSniper",
         "status": "online",
         "execution_status": execution_status,
         "armed": execution_status == "ARMED",

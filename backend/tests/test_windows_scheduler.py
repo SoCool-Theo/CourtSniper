@@ -1,12 +1,11 @@
-import base64
 from datetime import datetime, timedelta, timezone
 import json
+from pathlib import Path
 import subprocess
 from unittest import TestCase
 
 from backend.src.scheduler_models import BookingTargetTime, ScheduleConfig, calculate_schedule
 from backend.src.windows_scheduler import (
-    LOCAL_RUN_SNIPER_URL,
     POWERSHELL_EXECUTABLE,
     TASK_DESCRIPTION_PREFIX,
     TASK_NAME,
@@ -316,7 +315,7 @@ class WindowsSchedulerMutationTests(TestCase):
 
         self.assertEqual(len(runner.calls), 2)
 
-    def test_fixed_action_contains_only_local_run_sniper_trigger(self):
+    def test_fixed_action_launches_only_the_scheduled_runner(self):
         runner = FakeRunner(
             missing_task_result(),
             completed(),
@@ -325,6 +324,10 @@ class WindowsSchedulerMutationTests(TestCase):
         WindowsTaskSchedulerAdapter(
             runner=runner,
             platform_name="nt",
+            python_executable="C:\\CourtSniper\\python.exe",
+            scheduled_runner_path=Path(
+                "C:\\CourtSniper\\backend\\src\\scheduled_runner.py"
+            ),
         ).configure(self.config, self.target)
 
         registration_script = runner.calls[1][0][-1]
@@ -332,16 +335,36 @@ class WindowsSchedulerMutationTests(TestCase):
             line for line in registration_script.splitlines()
             if "New-ScheduledTaskAction" in line
         )
-        self.assertIn(f"-Execute '{POWERSHELL_EXECUTABLE}'", action_line)
-        self.assertIn("-EncodedCommand", action_line)
+        self.assertIn("-Execute 'C:\\CourtSniper\\python.exe'", action_line)
+        self.assertIn(
+            "-Argument '\"C:\\CourtSniper\\backend\\src\\scheduled_runner.py\"'",
+            action_line,
+        )
+        self.assertIn(
+            "-WorkingDirectory 'C:\\CourtSniper\\backend'",
+            action_line,
+        )
         self.assertNotIn("sniper.py", action_line)
-        self.assertNotIn(".venv", action_line)
-        encoded_command = action_line.split("-EncodedCommand ", 1)[1].rstrip("'")
-        decoded_command = base64.b64decode(encoded_command).decode("utf-16-le")
-        self.assertIn(LOCAL_RUN_SNIPER_URL, decoded_command)
-        self.assertIn("Invoke-RestMethod -Method Post", decoded_command)
-        self.assertNotIn("sniper.py", decoded_command)
-        self.assertNotIn("run-sniper/stop", decoded_command)
+        self.assertNotIn("Invoke-RestMethod", action_line)
+        self.assertNotIn("run-sniper", action_line)
+
+    def test_action_paths_escape_powershell_literals(self):
+        runner = FakeRunner(
+            missing_task_result(),
+            completed(),
+            managed_task_result(enabled=False),
+        )
+        WindowsTaskSchedulerAdapter(
+            runner=runner,
+            platform_name="nt",
+            python_executable="C:\\Court'Sniper\\python.exe",
+            scheduled_runner_path=Path(
+                "C:\\Court'Sniper\\backend\\src\\scheduled_runner.py"
+            ),
+        ).configure(self.config, self.target)
+
+        registration_script = runner.calls[1][0][-1]
+        self.assertIn("Court''Sniper", registration_script)
 
 
 class WindowsSchedulerCommandSafetyTests(TestCase):
