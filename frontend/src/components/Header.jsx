@@ -27,7 +27,12 @@ function StatusBlock({ icon: Icon, label, children, dot = true, dotClassName = '
 
 export default function Header({ onMenuToggle }) {
   const [time, setTime] = useState(() => new Date());
-  const { connectionStatus } = useCourtSniper();
+  const {
+    connectionStatus,
+    scheduler,
+    schedulerError,
+    isLoadingScheduler,
+  } = useCourtSniper();
 
   useEffect(() => {
     const timer = window.setInterval(() => setTime(new Date()), 40);
@@ -56,6 +61,28 @@ export default function Header({ onMenuToggle }) {
     ? 'bg-court-green shadow-[0_0_9px_rgba(99,255,0,0.85)]'
     : connectionStatus === 'offline'
       ? 'bg-court-danger shadow-[0_0_9px_rgba(255,55,72,0.75)]'
+      : 'bg-court-warning shadow-[0_0_9px_rgba(255,213,31,0.7)]';
+  const schedulerLabel = isLoadingScheduler
+    ? 'CHECKING'
+    : schedulerError
+      ? 'UNAVAILABLE'
+      : !scheduler.installed
+        ? 'NOT INSTALLED'
+        : !scheduler.managed
+          ? 'NAME CONFLICT'
+          : !scheduler.configured
+            ? 'NEEDS CONFIG'
+            : scheduler.configuration_in_sync === false
+              ? 'OUT OF SYNC'
+              : scheduler.enabled
+                ? 'ENABLED'
+                : 'DISABLED';
+  const schedulerDot = schedulerError
+    || (scheduler.installed && !scheduler.managed)
+    || scheduler.configuration_in_sync === false
+    ? 'bg-court-danger shadow-[0_0_9px_rgba(255,55,72,0.75)]'
+    : scheduler.enabled
+      ? 'bg-court-green shadow-[0_0_9px_rgba(99,255,0,0.85)]'
       : 'bg-court-warning shadow-[0_0_9px_rgba(255,213,31,0.7)]';
 
   return (
@@ -106,9 +133,9 @@ export default function Header({ onMenuToggle }) {
           <StatusBlock
             icon={CalendarClock}
             label="Scheduler Status"
-            dotClassName="bg-court-warning shadow-[0_0_9px_rgba(255,213,31,0.7)]"
+            dotClassName={schedulerDot}
           >
-            API REQUIRED
+            {schedulerLabel}
           </StatusBlock>
         </div>
 

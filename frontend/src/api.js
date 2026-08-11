@@ -63,3 +63,23 @@ export function fetchSniperRunStatus() {
 export function stopSniperRun() {
   return apiRequest('/run-sniper/stop', { method: 'POST' });
 }
+
+export function fetchSchedulerStatus() {
+  return apiRequest('/scheduler');
+}
+
+export function saveSchedulerConfig(scheduleConfig) {
+  return apiRequest('/scheduler/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(scheduleConfig),
+  });
+}
+
+export function enableScheduler() {
+  return apiRequest('/scheduler/enable', { method: 'POST' });
+}
+
+export function disableScheduler() {
+  return apiRequest('/scheduler/disable', { method: 'POST' });
+}
