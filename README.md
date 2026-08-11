@@ -40,6 +40,7 @@ CourtSniper/
 │   │   ├── setup_session.py     # Manual login script for caching session cookies
 │   │   ├── sniper.py            # High-precision Playwright execution engine
 │   │   └── windows_scheduler.py # Fixed Windows Task Scheduler adapter
+│   ├── tests/                    # Backend unit and mocked integration tests
 │   ├── .env                     # Hidden environment configuration file
 │   ├── .env.example             # Safe template file for environment variables
 │   ├── .gitignore               # Excludes .env, .venv, and user_data/ from Git
@@ -59,10 +60,10 @@ CourtSniper/
 
 * **`backend/src/` directory**: Contains the API, configuration, session setup, and automation logic.
 * **`config.py`**: Loads the target configuration without requiring changes to the automation engine.
-* **`setup_session.py`**: Handles manual authentication and creates the persistent browser profile.
-* **`sniper.py`**: Runs the precision booking workflow.
 * **`scheduled_runner.py`**: Safely starts or reuses the local API for a scheduled run and monitors the existing process manager.
 * **`scheduler_models.py`**: Validates selected booking weekdays and warm-up values and calculates local trigger times.
+* **`setup_session.py`**: Handles manual authentication and creates the persistent browser profile.
+* **`sniper.py`**: Runs the precision booking workflow.
 * **`windows_scheduler.py`**: Manages only the fixed, adapter-owned `CourtSniper` Windows task.
 * **`frontend/src/` directory**: Contains the dashboard components, responsive sections, shared state, and API client.
 * **Critical security notice**: The `user_data/` directory stores authenticated browser cookies and tokens. Keep it excluded from version control and never share, upload, or expose it through the frontend or API.
@@ -138,6 +139,8 @@ The frontend connects to `http://127.0.0.1:8000/api` by default. To use a differ
 VITE_API_BASE_URL=http://127.0.0.1:8000/api
 ```
 
+This frontend override does not change scheduled execution. For safety, the Windows task runner always uses the fixed local CourtSniper API at `http://127.0.0.1:8000/api` and accepts no host or URL configuration.
+
 Before opening a pull request, verify the frontend with:
 
 ```bash
@@ -160,13 +163,13 @@ Never commit `.env`, `user_data/`, browser profiles, cookies, tokens, or account
 
 ---
 
-## Frontend API Contract
+## Local API Contract
 
-The current frontend uses the following API routes:
+The dashboard and fixed scheduled runner use the following local API routes:
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/status` | Check backend availability and the current armed state. |
+| `GET` | `/api/status` | Confirm CourtSniper service identity, availability, and armed state. |
 | `GET` | `/api/config` | Load the current booking configuration. |
 | `POST` | `/api/config` | Save booking configuration and armed status. |
 | `POST` | `/api/run-setup` | Request the manual login/session setup browser. |
@@ -208,11 +211,13 @@ Start FastAPI and open the Scheduler panel in the dashboard. Select one or more 
 
 Saving creates or updates only the Windows task named `CourtSniper`. A new task is installed disabled so its calculated trigger can be reviewed before **Enable Schedule** is selected. If an unrelated task already owns that exact name, CourtSniper reports a name conflict and refuses to modify it.
 
+After upgrading from the earlier direct-HTTP task action, choose **Save Schedule** once to replace that action with the fixed runner. A recognized CourtSniper-managed task is updated in place and does not need to be deleted. Saving preserves its enabled state. If the project is moved or its Python environment is recreated later, save again to refresh the internally recorded interpreter and runner locations.
+
 ### 2. Enable or Disable Future Runs
 
 Choose **Enable Schedule** after reviewing the trigger. At the scheduled time, Windows launches the fixed `scheduled_runner.py` entry point. The runner reuses a recognized CourtSniper API if one is already running; otherwise, it starts FastAPI locally, sends the fixed request to `POST http://127.0.0.1:8000/api/run-sniper`, and monitors the existing process manager. If CourtSniper is disarmed, the endpoint rejects the request and no sniper process starts.
 
-When the runner started FastAPI, it keeps that API available while the sniper is active so the existing **Stop Sniper** endpoint remains usable. It shuts down only that owned API after the run succeeds, fails, or is stopped. It never shuts down a FastAPI instance that was already running. If monitoring becomes unavailable while a run may still be active, the runner leaves its API running rather than risk interrupting the booking.
+When the runner started FastAPI, it keeps that API available while the sniper is active so the existing **Stop Sniper** endpoint remains usable. The frontend is not started automatically; open the dashboard if you need its **Stop Sniper** control during a scheduled run. The runner shuts down only the API process it started after the run succeeds, fails, or is stopped. It never shuts down a FastAPI instance that was already running.
 
 Choose **Disable Future Runs** to prevent later triggers. This does not terminate a sniper process that is already running. Use **Stop Sniper** on the dashboard for an active run.
 
@@ -225,12 +230,16 @@ The adapter applies these fixed settings when it registers the task:
 * **Run with highest privileges**; Windows may require FastAPI itself to be started from an elevated terminal when configuring the task.
 * **Ignore overlapping task instances**. The API process manager also rejects a second sniper run while one is active.
 * **No stored password**. The task uses the current interactive Windows token.
+* **Fixed local action**. The task launches only the internally selected Python interpreter and `scheduled_runner.py`; scheduler API requests cannot supply an executable, script, command, task name, or URL.
+* **Unexpected-service protection**. If port `8000` responds without the CourtSniper service identity, the runner refuses to replace or invoke that service.
 
 ### 4. Status Semantics
 
 `GET /api/scheduler` reports whether the fixed task is installed, recognized as CourtSniper-managed, configured, in sync with the booking target, and enabled. It also returns the next run time, last run time, and Windows last-task result when available.
 
-A last-task result of `0` means the scheduled runner observed a successful process exit. Result `1` is a runner or local API failure, `2` means the existing ARMED/concurrency guard rejected the run, `3` means the sniper process failed, and `4` means it was stopped. A successful process exit does not independently prove that Messenger accepted the booking message.
+A last-task result of `0` means the scheduled runner observed a successful process exit. Result `1` is a runner, monitoring, timeout, or local API failure; `2` means the existing ARMED/concurrency guard rejected the run; `3` means the sniper process failed; and `4` means it was stopped. A successful process exit does not independently prove that Messenger accepted the booking message.
+
+If monitoring becomes unavailable or exceeds the fixed two-hour safety window while a run may still be active, the runner reports result `1` and leaves an API it started running rather than risk interrupting the booking. A temporary API is stopped when no run was accepted or after the runner confirms an idle or terminal process state.
 
 CourtSniper provides no API route for arbitrary task management or deletion. It does not expose the task action, Windows account, credentials, or sensitive local filesystem paths.
 
