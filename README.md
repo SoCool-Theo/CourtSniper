@@ -8,7 +8,21 @@ The automation engine uses a persistent local browser session to avoid repeating
 
 ## Architecture & Directory Structure
 
-The project uses a monorepo setup (`backend/` and `frontend/`). The React frontend provides the control dashboard, while the FastAPI and Python backend manage configuration, authentication setup, and browser automation.
+The project uses a monorepo setup (`backend/` and `frontend/`). The React frontend provides the control dashboard, while the FastAPI and Python backend manage configuration, authentication setup, browser automation, and the single supported Windows scheduled task.
+
+Scheduled execution follows one controlled path:
+
+```text
+Scheduler UI
+  -> Scheduler API
+  -> fixed Windows task named CourtSniper
+  -> POST http://127.0.0.1:8000/api/run-sniper
+  -> ARMED check
+  -> SniperProcessManager
+  -> predefined backend/src/sniper.py
+```
+
+The Windows task never runs `sniper.py` directly. Version 1 requires the FastAPI service to remain available at `127.0.0.1:8000` when a trigger fires.
 
 ```text
 CourtSniper/
@@ -42,6 +56,8 @@ CourtSniper/
 * **`config.py`**: Loads the target configuration without requiring changes to the automation engine.
 * **`setup_session.py`**: Handles manual authentication and creates the persistent browser profile.
 * **`sniper.py`**: Runs the precision booking workflow.
+* **`scheduler_models.py`**: Validates selected booking weekdays and warm-up values and calculates local trigger times.
+* **`windows_scheduler.py`**: Manages only the fixed, adapter-owned `CourtSniper` Windows task.
 * **`frontend/src/` directory**: Contains the dashboard components, responsive sections, shared state, and API client.
 * **Critical security notice**: The `user_data/` directory stores authenticated browser cookies and tokens. Keep it excluded from version control and never share, upload, or expose it through the frontend or API.
 
@@ -58,7 +74,9 @@ The responsive CourtSniper dashboard includes:
 * Scheduler, system-status, and execution-console panels.
 * Desktop, tablet, and mobile layouts with accessible navigation.
 
-The **Start Sniper** control uses the guarded backend API and is enabled only while the backend is online, the configuration is armed, and no run is active. While automation is running, the control becomes **Stop Sniper** and requests graceful cancellation. The dashboard reports `stopping` until browser cleanup completes and then reports `stopped`. **Test Run** and scheduler controls remain disabled until their dedicated backend behavior is implemented. The frontend never executes local Python files directly.
+The **Start Sniper** control uses the guarded backend API and is enabled only while the backend is online, the configuration is armed, and no run is active. While automation is running, the control becomes **Stop Sniper** and requests graceful cancellation. The dashboard reports `stopping` until browser cleanup completes and then reports `stopped`.
+
+The **Scheduler** panel configures booking weekdays and a warm-up period, reports the installed and enabled state of the Windows task, and displays next-run and last-run information when Windows provides it. Scheduler enablement controls future triggers only. It does not replace the `ARMED` kill switch and disabling it does not stop an active run. The frontend never executes local programs or Python files directly.
 
 ---
 
@@ -86,6 +104,14 @@ pip install -r requirements.txt
 playwright install chromium
 
 ```
+
+Start the local API from the `backend/` directory and keep it running while the scheduler is enabled:
+
+```powershell
+python -m uvicorn src.api:app --host 127.0.0.1 --port 8000
+```
+
+Windows may require the terminal hosting FastAPI to run with elevated permission when the dashboard first creates or updates the highest-privilege scheduled task. The API returns a sanitized permission error if Windows denies the operation.
 
 ### 3. Frontend Setup
 
@@ -120,7 +146,7 @@ Copy the safe `.env.example` template to create a private `.env` file in the `ba
 * **`TARGET_URL`**: The specific Facebook Messenger chat thread URL for the badminton club.
 * **`BOOKING_MESSAGE`**: Your customized booking message text (e.g., "Hi, I would like to book badminton court at 4 - 5pm").
 * **`TARGET_HOUR`, `TARGET_MINUTE`, `TARGET_SECOND`**: Your target execution timestamp in 24-hour format (for example, `8`, `0`, `0` for 8:00 AM).
-* **`STATUS`**: Set this to `"ARMED"` or `"DISARMED"` to remotely control whether the Task Scheduler script actually fires.
+* **`STATUS`**: Set this to `"ARMED"` or `"DISARMED"` to authorize or reject every request to `POST /api/run-sniper`, including requests made by the Windows task.
 
 Never commit `.env`, `user_data/`, browser profiles, cookies, tokens, or account credentials.
 
@@ -139,12 +165,22 @@ The current frontend uses the following API routes:
 | `POST` | `/api/run-sniper` | Start one controlled sniper run when armed. |
 | `GET` | `/api/run-sniper/status` | Read the current sniper process lifecycle state. |
 | `POST` | `/api/run-sniper/stop` | Stop the currently tracked sniper run. |
+| `GET` | `/api/scheduler` | Read the sanitized state of the fixed Windows task. |
+| `POST` | `/api/scheduler/config` | Configure selected booking weekdays and warm-up using the existing target time. |
+| `POST` | `/api/scheduler/enable` | Enable future triggers for the configured fixed task. |
+| `POST` | `/api/scheduler/disable` | Disable future triggers without stopping an active run. |
 
 `POST /api/run-sniper` executes only the predefined `backend/src/sniper.py` entry point. It returns `202 Accepted` when a run starts and rejects disarmed or concurrent requests with `409 Conflict`. The endpoint never accepts commands, script paths, booking URLs, or messages from the request.
 
 `GET /api/run-sniper/status` returns `idle`, `running`, `stopping`, `stopped`, `succeeded`, or `failed`, together with non-sensitive process metadata such as timestamps, PID, and exit code. A successful process exit confirms that the automation finished without a process-level error; it does not independently guarantee Messenger delivery. Run state is held in memory and resets when the FastAPI service restarts.
 
 `POST /api/run-sniper/stop` accepts no PID, command, or path from the client. It targets only the process group created and tracked by the API, requests graceful cancellation first, and uses an exact-PID process-tree fallback if cleanup does not finish within five seconds. It returns `409 Conflict` when no run is active. Cancellation before dispatch prevents the booking message from being sent; cancellation after dispatch closes the browser but cannot retract a message that was already submitted.
+
+The scheduler configuration request accepts only `weekdays` and `warmup_minutes`. It never accepts a task name, command, URL, executable path, or script path. The backend reads `TARGET_HOUR`, `TARGET_MINUTE`, and `TARGET_SECOND` internally and calculates the Windows trigger as target time minus warm-up. Selected weekdays refer to booking days, so a target shortly after midnight can produce a trigger on the preceding weekday.
+
+The first successful scheduler configuration installs the fixed task in a disabled state. Updating a recognized task preserves its current enabled state. Enabling is rejected when the booking target has changed since the task was configured; save the scheduler configuration again to recalculate the trigger. Scheduler enablement remains independent from `STATUS`, and the existing ARMED check still decides whether a scheduled request can start the sniper.
+
+Scheduler errors use sanitized HTTP responses: validation errors return `422`, state conflicts return `409`, permission failures return `403`, unavailable or unsupported scheduler environments return `503`, timeouts return `504`, and other scheduler failures return `500`. The API does not return Windows command output, credentials, principals, task actions, or local paths.
 
 ---
 
@@ -158,22 +194,35 @@ The current frontend uses the following API routes:
 
 ## Windows Task Scheduler Automation
 
-### 1. Unattended "Cheat Code" Execution
+### 1. Configure the Schedule
 
-Configure Windows Task Scheduler to run `sniper.py` automatically **every single day** at 7:55 AM, giving the browser a 5-minute warm-up buffer before registration opens. Because of the `STATUS` variable in your `.env` file, the script will instantly close itself if disarmed via the Web UI, saving you from fighting Windows Administrator permissions.
+Start FastAPI and open the Scheduler panel in the dashboard. Select one or more booking weekdays, enter the warm-up period in minutes, and choose **Save Schedule**. The default warm-up is five minutes and the supported range is 0 through 1440 minutes. The booking target continues to come from `TARGET_HOUR`, `TARGET_MINUTE`, and `TARGET_SECOND`; the Scheduler panel does not maintain a second target-time setting.
 
-### 2. Absolute System Paths
+Saving creates or updates only the Windows task named `CourtSniper`. A new task is installed disabled so its calculated trigger can be reviewed before **Enable Schedule** is selected. If an unrelated task already owns that exact name, CourtSniper reports a name conflict and refuses to modify it.
 
-Task Scheduler runs in the background and requires absolute system paths for both their Python executable (`python.exe`) and their script directory:
+### 2. Enable or Disable Future Runs
 
-* **Program/script**: `C:\Users\YourName\Desktop\CourtSniper\backend\.venv\Scripts\python.exe`
-* **Add arguments**: `src\sniper.py`
-* **Start in**: `C:\Users\YourName\Desktop\CourtSniper\backend`
+Choose **Enable Schedule** after reviewing the trigger. At the scheduled time, Windows sends a fixed local request to `POST http://127.0.0.1:8000/api/run-sniper`. FastAPI must still be running. If CourtSniper is disarmed, the endpoint rejects the request and no sniper process starts.
+
+Choose **Disable Future Runs** to prevent later triggers. This does not terminate a sniper process that is already running. Use **Stop Sniper** on the dashboard for an active run.
 
 ### 3. Critical Scheduler Settings
 
-* **Hardware Alarm Clock**: Under the Conditions tab, you must enable the checkbox labeled "Wake the computer to run this task" to command your motherboard to physically power on from sleep mode.
-* **Security Options**: Under the General tab, select "Run only when user is logged on" so Windows allows your active user desktop to render the visible Google Chrome UI.
+The adapter applies these fixed settings when it registers the task:
+
+* **Wake the computer to run this task** so a supported sleeping computer can wake for the trigger.
+* **Run only when the user is logged on** so the visible persistent Chrome session can run interactively.
+* **Run with highest privileges**; Windows may require FastAPI itself to be started from an elevated terminal when configuring the task.
+* **Ignore overlapping task instances**. The API process manager also rejects a second sniper run while one is active.
+* **No stored password**. The task uses the current interactive Windows token.
+
+### 4. Status Semantics
+
+`GET /api/scheduler` reports whether the fixed task is installed, recognized as CourtSniper-managed, configured, in sync with the booking target, and enabled. It also returns the next run time, last run time, and Windows last-task result when available.
+
+A last-task result of `0` means the scheduled local HTTP trigger completed successfully. It does not independently prove that the browser automation completed or that Messenger accepted the booking message. Use the run status and execution console for process-level information.
+
+CourtSniper provides no API route for arbitrary task management or deletion. It does not expose the task action, Windows account, credentials, or sensitive local filesystem paths.
 
 ---
 
@@ -182,7 +231,28 @@ Task Scheduler runs in the background and requires absolute system paths for bot
 * **Continuous Power**: Leave your PC or laptop plugged into an AC power outlet overnight.
 * **Sleep Mode Over Hibernate**: On laptops utilizing Modern Standby (S0 Low Power Idle)—such as ASUS TUF gaming laptops—you must use standard Sleep mode rather than Hibernate overnight.
 * **Power Plan Settings**: Verify that wake timers are strictly enabled inside your Windows Advanced Power Plan settings.
-* **Lock Screen Rules**: Adjust your Windows sign-in requirements to Never require a password when waking from sleep so Playwright can render cleanly without getting blocked by a locked desktop.
+* **Interactive Desktop**: Confirm that the logged-in desktop and visible Chrome session remain available after wake. Do not weaken device sign-in security solely for automation.
+
+---
+
+## Verification
+
+Run the backend suite from the repository root:
+
+```powershell
+.\backend\.venv\Scripts\python.exe -m unittest discover -s backend\tests -v
+cd backend
+.\.venv\Scripts\python.exe -m pip check
+```
+
+Run the frontend checks from `frontend/`:
+
+```powershell
+npm.cmd run lint
+npm.cmd run build
+```
+
+All automated Windows scheduler tests use an injected command runner. They do not create, update, enable, disable, query, or delete a real Windows task.
 
 ---
 
