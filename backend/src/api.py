@@ -2,10 +2,21 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict
 import os
-import subprocess
-import sys
 
 from pydantic import ValidationError
+
+try:
+    from .setup_session_process import (
+        SetupSessionLaunchError,
+        SetupSessionProcessManager,
+        SetupSessionScriptNotFoundError,
+    )
+except ImportError:
+    from setup_session_process import (
+        SetupSessionLaunchError,
+        SetupSessionProcessManager,
+        SetupSessionScriptNotFoundError,
+    )
 
 try:
     from .sniper_process import (
@@ -75,6 +86,7 @@ ROOT_DIR = os.path.dirname(CURRENT_DIR)
 ENV_FILE_PATH = os.path.join(ROOT_DIR, ".env")
 
 sniper_process_manager = SniperProcessManager()
+setup_session_process_manager = SetupSessionProcessManager()
 scheduler_adapter = WindowsTaskSchedulerAdapter()
 
 PUBLIC_CONFIG_KEYS = {
@@ -239,22 +251,26 @@ def update_config(updates: Dict[str, str]):
 
 @app.post("/api/run-setup")
 def trigger_setup():
-    """Triggers the manual Facebook login script in the background."""
-
-    # 1. Build the absolute path to setup_session.py (it lives in the same folder as this api.py)
-    setup_script_path = os.path.join(CURRENT_DIR, "setup_session.py")
-
-    if not os.path.exists(setup_script_path):
-        return {"error": "Could not find setup_session.py!"}
+    """Start the fixed login setup process or reuse its existing window."""
 
     try:
-        # 2. Launch the script as a separate background process.
-        subprocess.Popen([sys.executable, setup_script_path], cwd=ROOT_DIR)
+        result = setup_session_process_manager.start()
+    except (SetupSessionScriptNotFoundError, SetupSessionLaunchError) as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
 
-        return {"message": "Setup session launched! Check your laptop screen."}
+    if result.already_running:
+        return {
+            "message": (
+                "Login browser is already open. "
+                "Continue setup in the existing window."
+            ),
+            "already_running": True,
+        }
 
-    except Exception as e:
-        return {"error": f"Failed to launch script: {str(e)}"}
+    return {
+        "message": "Setup session launched! Check your laptop screen.",
+        "already_running": False,
+    }
 
 
 @app.post("/api/run-sniper", status_code=status.HTTP_202_ACCEPTED)
