@@ -1,10 +1,16 @@
 import os
-import time
 from urllib.parse import urlsplit
+
+try:
+    from .setup_session_guard import create_setup_session_guard
+except ImportError:
+    from setup_session_guard import create_setup_session_guard
 
 
 MESSENGER_INBOX_URL = "https://www.facebook.com/messages/"
 ALLOWED_TARGET_DOMAINS = ("facebook.com", "messenger.com")
+LOGIN_WINDOW_TIMEOUT_MS = 300_000
+SETUP_ALREADY_RUNNING_EXIT_CODE = 75
 
 
 def _load_configured_target_url():
@@ -59,54 +65,96 @@ def resolve_login_url(target_url):
     return MESSENGER_INBOX_URL, False
 
 
+def _wait_for_browser_completion(page):
+    """Wait for the login window timeout, returning early when Chrome closes."""
+    try:
+        page.wait_for_timeout(LOGIN_WINDOW_TIMEOUT_MS)
+    except KeyboardInterrupt:
+        raise
+    except Exception:
+        try:
+            browser_closed = page.is_closed()
+        except Exception:
+            browser_closed = False
+
+        if browser_closed:
+            return
+        raise RuntimeError(
+            "The login browser setup did not complete normally."
+        ) from None
+
+
+def _close_browser_context(browser):
+    """Treat an already-closed login window as successful cleanup."""
+    try:
+        browser.close()
+    except Exception:
+        return
+
+
 def create_persistent_session(
     configuration_loader=_load_configured_target_url,
     playwright_factory=_create_playwright_context,
-    sleep_fn=time.sleep,
+    guard_factory=create_setup_session_guard,
 ):
-    print("Launching Google Chrome to save your Facebook login...")
-    login_url, uses_configured_target = resolve_login_url(configuration_loader())
-    if uses_configured_target:
-        print("Opening the configured Facebook or Messenger conversation.")
-    else:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    backend_dir = os.path.dirname(script_dir)
+    guard = guard_factory(backend_dir)
+
+    if not guard.acquire():
         print(
-            "Configured conversation unavailable or invalid; "
-            "opening the Messenger inbox."
+            "Login browser is already open. "
+            "Continue setup in the existing window."
         )
+        return False
 
-    with playwright_factory() as p:
-
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        backend_dir = os.path.dirname(script_dir)
-        user_data_path = os.path.join(backend_dir, "user_data")
-
-        browser = p.chromium.launch_persistent_context(
-            user_data_dir=user_data_path,
-            channel="chrome",
-            headless=False,
-            viewport={"width": 1280, "height": 720}
-        )
-
-        try:
-            page = browser.new_page()
-            try:
-                page.goto(login_url)
-            except Exception:
-                raise RuntimeError("Unable to open the login destination.") from None
-
-            print("\n--- ACTION REQUIRED ---")
-            print("1. Log into your Facebook account in the browser window.")
-            print("2. Handle any Two-Factor Authentication (2FA) prompts.")
+    try:
+        print("Launching Google Chrome to save your Facebook login...")
+        login_url, uses_configured_target = resolve_login_url(configuration_loader())
+        if uses_configured_target:
+            print("Opening the configured Facebook or Messenger conversation.")
+        else:
             print(
-                "3. Once the configured conversation or Messenger inbox is visible, "
-                "return to this terminal and press Ctrl+C, or simply close the browser window."
+                "Configured conversation unavailable or invalid; "
+                "opening the Messenger inbox."
             )
 
-            # Keep the script open for 5 minutes to give you plenty of time to log in
-            sleep_fn(300)
-        finally:
-            browser.close()
+        with playwright_factory() as p:
+            user_data_path = os.path.join(backend_dir, "user_data")
+
+            browser = p.chromium.launch_persistent_context(
+                user_data_dir=user_data_path,
+                channel="chrome",
+                headless=False,
+                viewport={"width": 1280, "height": 720}
+            )
+
+            try:
+                page = browser.new_page()
+                try:
+                    page.goto(login_url)
+                except Exception:
+                    raise RuntimeError(
+                        "Unable to open the login destination."
+                    ) from None
+
+                print("\n--- ACTION REQUIRED ---")
+                print("1. Log into your Facebook account in the browser window.")
+                print("2. Handle any Two-Factor Authentication (2FA) prompts.")
+                print(
+                    "3. Once the configured conversation or Messenger inbox is visible, "
+                    "close the browser window to finish setup. The window will close "
+                    "automatically after five minutes."
+                )
+
+                _wait_for_browser_completion(page)
+            finally:
+                _close_browser_context(browser)
+        return True
+    finally:
+        guard.release()
 
 
 if __name__ == "__main__":
-    create_persistent_session()
+    setup_completed = create_persistent_session()
+    raise SystemExit(0 if setup_completed else SETUP_ALREADY_RUNNING_EXIT_CODE)
