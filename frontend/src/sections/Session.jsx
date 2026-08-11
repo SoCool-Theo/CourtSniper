@@ -94,7 +94,9 @@ export default function Session() {
         <div className="grid gap-3 lg:pl-6">
           <p className="text-center text-[0.68rem] font-medium leading-relaxed text-court-text/75">
             Open Login Browser opens the conversation saved in Booking Configuration.{' '}
-            If its URL is missing or invalid, the Messenger inbox opens instead.
+            An active setup window is reused, and the persistent profile normally keeps{' '}
+            you signed in after setup. Reopen it when you need to authenticate again.{' '}
+            A missing or invalid URL falls back to the Messenger inbox.
           </p>
           <button
             type="button"
