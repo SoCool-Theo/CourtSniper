@@ -92,6 +92,10 @@ export default function Session() {
         </dl>
 
         <div className="grid gap-3 lg:pl-6">
+          <p className="text-center text-[0.68rem] font-medium leading-relaxed text-court-text/75">
+            Open Login Browser opens the conversation saved in Booking Configuration.{' '}
+            If its URL is missing or invalid, the Messenger inbox opens instead.
+          </p>
           <button
             type="button"
             onClick={handleRefresh}
