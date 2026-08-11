@@ -1,7 +1,8 @@
 import sys
+from inspect import signature
 from types import ModuleType, SimpleNamespace
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 try:
     from fastapi import HTTPException
@@ -314,3 +315,70 @@ class SniperApiRouteContractTests(TestCase):
             ("/api/run-sniper/stop", ("POST",), 200),
             route_contracts,
         )
+
+
+class SetupSessionApiSecurityTests(TestCase):
+    def setUp(self):
+        self.manager = Mock()
+        self.manager.start.return_value = SimpleNamespace(already_running=False)
+        self.original_manager = api.setup_session_process_manager
+        api.setup_session_process_manager = self.manager
+
+    def tearDown(self):
+        api.setup_session_process_manager = self.original_manager
+
+    def test_run_setup_accepts_no_client_configuration(self):
+        self.assertEqual(tuple(signature(api.trigger_setup).parameters), ())
+
+    def test_run_setup_starts_the_internal_process_manager(self):
+        response = api.trigger_setup()
+
+        self.manager.start.assert_called_once_with()
+        self.assertEqual(
+            response,
+            {
+                "message": "Setup session launched! Check your laptop screen.",
+                "already_running": False,
+            },
+        )
+
+    def test_run_setup_reuses_an_active_login_window(self):
+        self.manager.start.return_value = SimpleNamespace(already_running=True)
+
+        response = api.trigger_setup()
+
+        self.manager.start.assert_called_once_with()
+        self.assertEqual(
+            response,
+            {
+                "message": (
+                    "Login browser is already open. "
+                    "Continue setup in the existing window."
+                ),
+                "already_running": True,
+            },
+        )
+
+    def test_run_setup_reports_only_sanitized_launch_failures(self):
+        self.manager.start.side_effect = api.SetupSessionLaunchError(
+            "The login setup process could not be started."
+        )
+
+        with self.assertRaises(HTTPException) as context:
+            api.trigger_setup()
+
+        self.assertEqual(context.exception.status_code, 500)
+        self.assertEqual(
+            context.exception.detail,
+            "The login setup process could not be started.",
+        )
+
+    def test_run_setup_route_is_registered_as_bodyless_post(self):
+        routes = [
+            route
+            for route in api.app.routes
+            if route.path == "/api/run-setup" and "POST" in route.methods
+        ]
+
+        self.assertEqual(len(routes), 1)
+        self.assertEqual(tuple(signature(api.trigger_setup).parameters), ())
