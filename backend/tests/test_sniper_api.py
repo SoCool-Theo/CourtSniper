@@ -1,4 +1,5 @@
 import sys
+from inspect import signature
 from types import ModuleType, SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
@@ -314,3 +315,37 @@ class SniperApiRouteContractTests(TestCase):
             ("/api/run-sniper/stop", ("POST",), 200),
             route_contracts,
         )
+
+
+class SetupSessionApiSecurityTests(TestCase):
+    def test_run_setup_accepts_no_client_configuration(self):
+        self.assertEqual(tuple(signature(api.trigger_setup).parameters), ())
+
+    def test_run_setup_launches_only_the_fixed_setup_script(self):
+        with (
+            patch.object(api.os.path, "exists", return_value=True),
+            patch.object(api.subprocess, "Popen") as popen,
+        ):
+            response = api.trigger_setup()
+
+        expected_script = api.os.path.join(api.CURRENT_DIR, "setup_session.py")
+        popen.assert_called_once_with(
+            [api.sys.executable, expected_script],
+            cwd=api.ROOT_DIR,
+        )
+        launched_command = popen.call_args.args[0]
+        self.assertFalse(any("http" in argument for argument in launched_command))
+        self.assertEqual(
+            response,
+            {"message": "Setup session launched! Check your laptop screen."},
+        )
+
+    def test_run_setup_route_is_registered_as_bodyless_post(self):
+        routes = [
+            route
+            for route in api.app.routes
+            if route.path == "/api/run-setup" and "POST" in route.methods
+        ]
+
+        self.assertEqual(len(routes), 1)
+        self.assertEqual(tuple(signature(api.trigger_setup).parameters), ())
