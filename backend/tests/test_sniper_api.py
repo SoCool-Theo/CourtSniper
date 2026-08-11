@@ -121,6 +121,7 @@ class SniperApiTests(TestCase):
         self.assertEqual(
             response,
             {
+                "service": "CourtSniper",
                 "status": "online",
                 "execution_status": "ARMED",
                 "armed": True,
@@ -135,6 +136,7 @@ class SniperApiTests(TestCase):
         self.assertEqual(
             response,
             {
+                "service": "CourtSniper",
                 "status": "online",
                 "execution_status": "DISARMED",
                 "armed": False,
@@ -149,6 +151,7 @@ class SniperApiTests(TestCase):
         self.assertEqual(
             response,
             {
+                "service": "CourtSniper",
                 "status": "online",
                 "execution_status": "UNKNOWN",
                 "armed": False,

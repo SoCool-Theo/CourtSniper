@@ -7,7 +7,9 @@ from collections.abc import Callable
 from datetime import datetime, time, timezone
 import json
 import os
+from pathlib import Path
 import subprocess
+import sys
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -33,22 +35,7 @@ except ImportError:
 TASK_NAME = "CourtSniper"
 TASK_PATH = "\\"
 TASK_DESCRIPTION_PREFIX = "CourtSniper Scheduler v1:"
-LOCAL_RUN_SNIPER_URL = "http://127.0.0.1:8000/api/run-sniper"
 POWERSHELL_EXECUTABLE = "powershell.exe"
-
-_ACTION_SCRIPT = (
-    "try { "
-    f"Invoke-RestMethod -Method Post -Uri '{LOCAL_RUN_SNIPER_URL}' "
-    "-ErrorAction Stop | Out-Null; exit 0 "
-    "} catch { exit 1 }"
-)
-_ACTION_ENCODED_COMMAND = base64.b64encode(
-    _ACTION_SCRIPT.encode("utf-16-le")
-).decode("ascii")
-_ACTION_ARGUMENTS = (
-    "-NoProfile -NonInteractive -WindowStyle Hidden "
-    f"-EncodedCommand {_ACTION_ENCODED_COMMAND}"
-)
 _POWERSHELL_PREFIX = [
     POWERSHELL_EXECUTABLE,
     "-NoLogo",
@@ -163,10 +150,18 @@ class WindowsTaskSchedulerAdapter:
         runner: CommandRunner = subprocess.run,
         platform_name: str = os.name,
         timeout_seconds: float = 10.0,
+        python_executable: str = sys.executable,
+        scheduled_runner_path: Path | None = None,
     ) -> None:
         self._runner = runner
         self._platform_name = platform_name
         self._timeout_seconds = timeout_seconds
+        self._python_executable = str(Path(python_executable).resolve())
+        self._scheduled_runner_path = (
+            scheduled_runner_path
+            or Path(__file__).resolve().parent / "scheduled_runner.py"
+        ).resolve()
+        self._backend_dir = self._scheduled_runner_path.parent.parent
 
     def get_status(self) -> WindowsSchedulerStatus:
         payload = self._run_json(_status_script())
@@ -230,7 +225,16 @@ class WindowsTaskSchedulerAdapter:
         plan = calculate_schedule(config, target)
         description = _encode_configuration(plan)
         preserve_enabled = current.enabled is True
-        self._run(_configure_script(plan, description, preserve_enabled))
+        self._run(
+            _configure_script(
+                plan,
+                description,
+                preserve_enabled,
+                python_executable=self._python_executable,
+                scheduled_runner_path=self._scheduled_runner_path,
+                backend_dir=self._backend_dir,
+            )
+        )
         return self.get_status()
 
     def enable(self) -> WindowsSchedulerStatus:
@@ -357,18 +361,25 @@ def _configure_script(
     plan: SchedulePlan,
     description: str,
     preserve_enabled: bool,
+    *,
+    python_executable: str,
+    scheduled_runner_path: Path,
+    backend_dir: Path,
 ) -> str:
     days = ", ".join(
         f"'{_WINDOWS_WEEKDAYS[weekday]}'" for weekday in plan.trigger_weekdays
     )
     disable_setting = "" if preserve_enabled else " -Disable"
     trigger_time = plan.trigger_time
+    action_executable = _powershell_literal(python_executable)
+    action_arguments = _powershell_literal(f'"{scheduled_runner_path}"')
+    action_working_directory = _powershell_literal(str(backend_dir))
     return f"""
 $ErrorActionPreference = 'Stop'
 try {{
     $existing = Get-ScheduledTask -TaskName '{TASK_NAME}' -TaskPath '{TASK_PATH}' -ErrorAction SilentlyContinue
     if ($null -ne $existing -and -not ([string]$existing.Description).StartsWith('{TASK_DESCRIPTION_PREFIX}')) {{ exit 6 }}
-    $action = New-ScheduledTaskAction -Execute '{POWERSHELL_EXECUTABLE}' -Argument '{_ACTION_ARGUMENTS}'
+    $action = New-ScheduledTaskAction -Execute '{action_executable}' -Argument '{action_arguments}' -WorkingDirectory '{action_working_directory}'
     $at = [datetime]::Today.AddHours({trigger_time.hour}).AddMinutes({trigger_time.minute}).AddSeconds({trigger_time.second})
     $trigger = New-ScheduledTaskTrigger -Weekly -WeeksInterval 1 -DaysOfWeek @({days}) -At $at
     $settings = New-ScheduledTaskSettingsSet -WakeToRun -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew{disable_setting}
@@ -382,6 +393,11 @@ try {{
     exit 1
 }}
 """.strip()
+
+
+def _powershell_literal(value: str) -> str:
+    """Escape an internally derived value for a single-quoted PowerShell literal."""
+    return value.replace("'", "''")
 
 
 def _state_change_script(*, enable: bool) -> str:
