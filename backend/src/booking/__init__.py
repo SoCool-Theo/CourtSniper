@@ -1,0 +1,1 @@
+"""Booking automation feature package."""

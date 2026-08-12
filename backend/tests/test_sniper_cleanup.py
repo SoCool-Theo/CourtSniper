@@ -1,13 +1,14 @@
 from datetime import datetime
 import importlib.util
 from pathlib import Path
-import sys
 from types import ModuleType
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import Mock
 
 
-SNIPER_PATH = Path(__file__).resolve().parents[1] / "src" / "sniper.py"
+SNIPER_PATH = (
+    Path(__file__).resolve().parents[1] / "src" / "booking" / "sniper.py"
+)
 
 
 class FakeInputBox:
@@ -92,10 +93,6 @@ def load_sniper_module(cancel_on_wait=False, cancel_after_dispatch=False):
     browser = FakeBrowser(page, events)
     chromium = FakeChromium(browser)
 
-    sync_api_module = ModuleType("playwright.sync_api")
-    sync_api_module.sync_playwright = lambda: FakePlaywrightContext(chromium, events)
-    playwright_module = ModuleType("playwright")
-
     now = datetime.now()
     config_module = ModuleType("config")
     config_module.TARGET_URL = "https://example.invalid/messages/test"
@@ -104,21 +101,19 @@ def load_sniper_module(cancel_on_wait=False, cancel_after_dispatch=False):
     config_module.TARGET_MINUTE = now.minute
     config_module.TARGET_SECOND = 0
 
-    dotenv_module = ModuleType("dotenv")
-    dotenv_module.load_dotenv = lambda **kwargs: None
-
     module_name = f"sniper_under_test_{id(browser)}"
     spec = importlib.util.spec_from_file_location(module_name, SNIPER_PATH)
     module = importlib.util.module_from_spec(spec)
 
-    fake_modules = {
-        "playwright": playwright_module,
-        "playwright.sync_api": sync_api_module,
-        "config": config_module,
-        "dotenv": dotenv_module,
-    }
-    with patch.dict(sys.modules, fake_modules), patch("os.getenv", return_value="ARMED"):
-        spec.loader.exec_module(module)
+    spec.loader.exec_module(module)
+
+    module._load_environment = lambda: None
+    module._get_configured_status = lambda: "ARMED"
+    module._load_booking_config = lambda: config_module
+    module._create_playwright_context = lambda: FakePlaywrightContext(
+        chromium,
+        events,
+    )
 
     class FixedDateTime:
         @classmethod
@@ -135,6 +130,24 @@ def load_sniper_module(cancel_on_wait=False, cancel_after_dispatch=False):
 
 
 class SniperCleanupTests(TestCase):
+    def test_disarmed_run_exits_before_loading_config_or_playwright(self):
+        module, browser, page, input_box, chromium, events = load_sniper_module()
+        configuration_loader = Mock()
+        playwright_factory = Mock()
+        module._get_configured_status = lambda: "DISARMED"
+        module._load_booking_config = configuration_loader
+        module._create_playwright_context = playwright_factory
+
+        with self.assertRaises(SystemExit) as context:
+            module.run_sniper()
+
+        self.assertEqual(context.exception.code, 0)
+        configuration_loader.assert_not_called()
+        playwright_factory.assert_not_called()
+        self.assertEqual(browser.close_calls, 0)
+        self.assertEqual(page.keyboard.pressed_keys, [])
+        self.assertEqual(events, [])
+
     def test_successful_run_closes_browser_after_dispatch(self):
         module, browser, page, input_box, chromium, events = load_sniper_module()
 
@@ -145,6 +158,10 @@ class SniperCleanupTests(TestCase):
         self.assertEqual(input_box.filled_message, "test booking message")
         self.assertEqual(browser.close_calls, 1)
         self.assertLess(events.index("browser_closed"), events.index("playwright_exited"))
+        self.assertEqual(
+            Path(chromium.launch_options["user_data_dir"]),
+            Path(__file__).resolve().parents[1] / "user_data",
+        )
 
     def test_cancellation_after_dispatch_still_closes_browser(self):
         module, browser, page, input_box, chromium, events = load_sniper_module(
