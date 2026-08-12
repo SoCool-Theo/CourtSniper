@@ -32,14 +32,33 @@ CourtSniper/
 ├── backend/                     # Python Automation & FastAPI Service
 │   ├── .venv/                   # Isolated Python virtual environment
 │   ├── user_data/               # Cached Facebook/Chrome session cookies (hidden/ignored)
-│   ├── src/                     
-│   │   ├── api.py               # FastAPI backend server and guarded API routes
+│   ├── src/
+│   │   ├── api.py               # Stable FastAPI composition root (`src.api:app`)
 │   │   ├── config.py            # Loads configuration variables from .env
-│   │   ├── scheduled_runner.py  # Fixed scheduled API bootstrap and run monitor
-│   │   ├── scheduler_models.py  # Schedule validation and next-run calculation
-│   │   ├── setup_session.py     # Manual login script for caching session cookies
-│   │   ├── sniper.py            # High-precision Playwright execution engine
-│   │   └── windows_scheduler.py # Fixed Windows Task Scheduler adapter
+│   │   ├── session/             # Login setup, mutex guard, and process manager
+│   │   │   ├── setup.py
+│   │   │   ├── guard.py
+│   │   │   └── process.py
+│   │   ├── booking/             # Booking automation and process lifecycle
+│   │   │   ├── sniper.py
+│   │   │   └── process.py
+│   │   ├── scheduler/           # Models, fixed runner, and Windows adapter
+│   │   │   ├── models.py
+│   │   │   ├── runner.py
+│   │   │   └── windows.py
+│   │   ├── web/                 # Feature-specific FastAPI route modules
+│   │   │   ├── config_routes.py
+│   │   │   ├── session_routes.py
+│   │   │   ├── sniper_routes.py
+│   │   │   └── scheduler_routes.py
+│   │   ├── setup_session.py     # Stable manual-login executable wrapper
+│   │   ├── sniper.py            # Stable booking executable wrapper
+│   │   ├── scheduled_runner.py  # Stable Windows task executable wrapper
+│   │   ├── setup_session_guard.py
+│   │   ├── setup_session_process.py
+│   │   ├── sniper_process.py
+│   │   ├── scheduler_models.py
+│   │   └── windows_scheduler.py # Stable legacy import wrappers
 │   ├── tests/                    # Backend unit and mocked integration tests
 │   ├── .env                     # Hidden environment configuration file
 │   ├── .env.example             # Safe template file for environment variables
@@ -58,15 +77,13 @@ CourtSniper/
 
 ```
 
-* **`backend/src/` directory**: Contains the API, configuration, session setup, and automation logic.
+* **`backend/src/session/`**: Owns manual authentication, safe target selection, the project-scoped Windows named mutex, and duplicate-resistant setup process management.
+* **`backend/src/booking/`**: Owns the precision Messenger workflow and the tracked sniper process lifecycle, including cancellation and cleanup.
+* **`backend/src/scheduler/`**: Owns schedule validation, the fixed local scheduled runner, and the adapter for the single managed Windows task.
+* **`backend/src/web/`**: Owns configuration, session, sniper, and scheduler route handlers. `api.py` composes these routes while preserving shared manager lifetimes and CORS settings.
+* **Stable compatibility entrypoints**: The root modules under `backend/src/` remain supported import and executable paths. Existing scripts may continue importing `setup_session`, `setup_session_guard`, `setup_session_process`, `sniper`, `sniper_process`, `scheduler_models`, `scheduled_runner`, or `windows_scheduler`.
+* **Stable executable paths**: Manual setup still uses `backend/src/setup_session.py`, controlled booking runs still use `backend/src/sniper.py`, and installed Windows tasks still use `backend/src/scheduled_runner.py`.
 * **`config.py`**: Loads the target configuration without requiring changes to the automation engine.
-* **`scheduled_runner.py`**: Safely starts or reuses the local API for a scheduled run and monitors the existing process manager.
-* **`scheduler_models.py`**: Validates selected booking weekdays and warm-up values and calculates local trigger times.
-* **`setup_session.py`**: Handles manual authentication, opens the configured conversation, and owns the single-instance setup guard while Chrome is open.
-* **`setup_session_guard.py`**: Provides the project-scoped Windows named mutex that prevents concurrent login browsers across processes.
-* **`setup_session_process.py`**: Serializes API launch requests and reuses an active setup process or cross-process login window.
-* **`sniper.py`**: Runs the precision booking workflow.
-* **`windows_scheduler.py`**: Manages only the fixed, adapter-owned `CourtSniper` Windows task.
 * **`frontend/src/` directory**: Contains the dashboard components, responsive sections, shared state, and API client.
 * **Critical security notice**: The `user_data/` directory stores authenticated browser cookies and tokens. Keep it excluded from version control and never share, upload, or expose it through the frontend or API.
 

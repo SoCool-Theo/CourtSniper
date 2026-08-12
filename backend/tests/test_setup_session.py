@@ -123,7 +123,13 @@ class SetupSessionBrowserTests(TestCase):
         launch_kwargs = (
             dependencies.chromium.launch_persistent_context.call_args.kwargs
         )
-        self.assertEqual(Path(launch_kwargs["user_data_dir"]).name, "user_data")
+        expected_user_data_path = (
+            Path(setup_session.__file__).resolve().parent.parent / "user_data"
+        )
+        self.assertEqual(
+            Path(launch_kwargs["user_data_dir"]),
+            expected_user_data_path,
+        )
         self.assertEqual(launch_kwargs["channel"], "chrome")
         self.assertFalse(launch_kwargs["headless"])
         self.assertEqual(launch_kwargs["viewport"], {"width": 1280, "height": 720})

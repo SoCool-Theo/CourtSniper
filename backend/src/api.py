@@ -1,24 +1,19 @@
+"""Stable FastAPI composition root for CourtSniper."""
+
+import os
+from typing import Dict
+
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Dict
-import os
-
 from pydantic import ValidationError
 
 try:
+    from .scheduler_models import BookingTargetTime, ScheduleConfig
     from .setup_session_process import (
         SetupSessionLaunchError,
         SetupSessionProcessManager,
         SetupSessionScriptNotFoundError,
     )
-except ImportError:
-    from setup_session_process import (
-        SetupSessionLaunchError,
-        SetupSessionProcessManager,
-        SetupSessionScriptNotFoundError,
-    )
-
-try:
     from .sniper_process import (
         SniperAlreadyRunningError,
         SniperLaunchError,
@@ -27,18 +22,7 @@ try:
         SniperScriptNotFoundError,
         SniperStopError,
     )
-except ImportError:
-    from sniper_process import (
-        SniperAlreadyRunningError,
-        SniperLaunchError,
-        SniperNotRunningError,
-        SniperProcessManager,
-        SniperScriptNotFoundError,
-        SniperStopError,
-    )
-
-try:
-    from .scheduler_models import BookingTargetTime, ScheduleConfig
+    from .web import config_routes, scheduler_routes, session_routes, sniper_routes
     from .windows_scheduler import (
         SchedulerTaskNotConfiguredError,
         SchedulerTaskNotInstalledError,
@@ -54,6 +38,20 @@ try:
     )
 except ImportError:
     from scheduler_models import BookingTargetTime, ScheduleConfig
+    from setup_session_process import (
+        SetupSessionLaunchError,
+        SetupSessionProcessManager,
+        SetupSessionScriptNotFoundError,
+    )
+    from sniper_process import (
+        SniperAlreadyRunningError,
+        SniperLaunchError,
+        SniperNotRunningError,
+        SniperProcessManager,
+        SniperScriptNotFoundError,
+        SniperStopError,
+    )
+    from web import config_routes, scheduler_routes, session_routes, sniper_routes
     from windows_scheduler import (
         SchedulerTaskNotConfiguredError,
         SchedulerTaskNotInstalledError,
@@ -68,7 +66,7 @@ except ImportError:
         WindowsTaskSchedulerAdapter,
     )
 
-# Initialize the FastAPI application
+
 app = FastAPI(title="CourtSniper Web UI")
 
 app.add_middleware(
@@ -80,9 +78,7 @@ app.add_middleware(
 )
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-
 ROOT_DIR = os.path.dirname(CURRENT_DIR)
-
 ENV_FILE_PATH = os.path.join(ROOT_DIR, ".env")
 
 sniper_process_manager = SniperProcessManager()
@@ -106,21 +102,7 @@ class BookingTargetConfigurationError(ValueError):
 
 
 def _read_config_values(allowed_keys: set[str]) -> dict[str, str]:
-    values = {}
-    if not os.path.exists(ENV_FILE_PATH):
-        return values
-
-    with open(ENV_FILE_PATH, "r", encoding="utf-8") as file:
-        for line in file:
-            stripped_line = line.strip()
-            if not stripped_line or stripped_line.startswith("#") or "=" not in stripped_line:
-                continue
-
-            key, value = stripped_line.split("=", 1)
-            key = key.strip()
-            if key in allowed_keys:
-                values[key] = value.strip().strip("\"'")
-    return values
+    return config_routes.read_config_values(ENV_FILE_PATH, allowed_keys)
 
 
 def _get_configured_status():
@@ -201,186 +183,51 @@ def _scheduler_http_exception(error: Exception) -> HTTPException:
         detail="Windows Task Scheduler operation failed.",
     )
 
-@app.get("/api/status")
-def get_status():
-    execution_status = _get_configured_status() or "UNKNOWN"
-    return {
-        "service": "CourtSniper",
-        "status": "online",
-        "execution_status": execution_status,
-        "armed": execution_status == "ARMED",
-    }
 
-@app.get("/api/config")
-def get_config():
-    """Return only the configuration fields required by the dashboard."""
-    return _read_config_values(PUBLIC_CONFIG_KEYS)
+get_status, get_config, update_config = config_routes.register_config_routes(
+    app,
+    get_configured_status=lambda: _get_configured_status(),
+    read_public_config=lambda: _read_config_values(PUBLIC_CONFIG_KEYS),
+    update_configuration=lambda updates: config_routes.update_config_file(
+        updates,
+        env_file_path=ENV_FILE_PATH,
+        editable_keys=EDITABLE_CONFIG_KEYS,
+    ),
+)
 
-@app.post("/api/config")
-def update_config(updates: Dict[str, str]):
-    """Receives JSON from the frontend and overwrites the .env file."""
-    if any(key not in EDITABLE_CONFIG_KEYS for key in updates):
-        raise HTTPException(
-            status_code=422,
-            detail="The request contains an unsupported configuration field.",
-        )
+trigger_setup = session_routes.register_session_routes(
+    app,
+    get_process_manager=lambda: setup_session_process_manager,
+    launch_errors=(SetupSessionScriptNotFoundError, SetupSessionLaunchError),
+)
 
-    if not os.path.exists(ENV_FILE_PATH):
-        return {"error": ".env file missing!"}
+(
+    trigger_sniper,
+    get_sniper_run_status,
+    stop_sniper,
+) = sniper_routes.register_sniper_routes(
+    app,
+    get_configured_status=lambda: _get_configured_status(),
+    get_process_manager=lambda: sniper_process_manager,
+    already_running_error=SniperAlreadyRunningError,
+    launch_errors=(SniperScriptNotFoundError, SniperLaunchError),
+    not_running_error=SniperNotRunningError,
+    stop_error=SniperStopError,
+)
 
-    # Read the current file line by line
-    with open(ENV_FILE_PATH, "r", encoding="utf-8") as file:
-        lines = file.readlines()
-
-    # Rewrite the file, swapping out updated values
-    with open(ENV_FILE_PATH, "w", encoding="utf-8") as file:
-        for line in lines:
-            written = False
-            for key, new_value in updates.items():
-                if line.startswith(f"{key}="):
-                    # Write the new value, wrapped safely in quotes
-                    file.write(f'{key}="{new_value}"\n')
-                    written = True
-                    break
-            # If the line wasn't updated, keep it exactly as it was
-            if not written:
-                file.write(line)
-
-    return {"message": "Configuration successfully updated on the server!"}
-
-
-@app.post("/api/run-setup")
-def trigger_setup():
-    """Start the fixed login setup process or reuse its existing window."""
-
-    try:
-        result = setup_session_process_manager.start()
-    except (SetupSessionScriptNotFoundError, SetupSessionLaunchError) as error:
-        raise HTTPException(status_code=500, detail=str(error)) from error
-
-    if result.already_running:
-        return {
-            "message": (
-                "Login browser is already open. "
-                "Continue setup in the existing window."
-            ),
-            "already_running": True,
-        }
-
-    return {
-        "message": "Setup session launched! Check your laptop screen.",
-        "already_running": False,
-    }
-
-
-@app.post("/api/run-sniper", status_code=status.HTTP_202_ACCEPTED)
-def trigger_sniper():
-    """Start the predefined sniper automation when the kill switch is armed."""
-    if _get_configured_status() != "ARMED":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="CourtSniper must be armed before starting a run.",
-        )
-
-    try:
-        run_status = sniper_process_manager.start()
-    except SniperAlreadyRunningError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(error),
-        ) from error
-    except (SniperScriptNotFoundError, SniperLaunchError) as error:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(error),
-        ) from error
-
-    return {
-        "message": "CourtSniper run started.",
-        "run": run_status.to_dict(),
-    }
-
-
-@app.get("/api/run-sniper/status", status_code=200)
-def get_sniper_run_status():
-    """Return the current non-sensitive sniper process state."""
-    return {"run": sniper_process_manager.get_status().to_dict()}
-
-
-@app.post("/api/run-sniper/stop", status_code=200)
-def stop_sniper():
-    """Stop the currently tracked sniper process group."""
-    try:
-        run_status = sniper_process_manager.stop()
-    except SniperNotRunningError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(error),
-        ) from error
-    except SniperStopError as error:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(error),
-        ) from error
-
-    return {
-        "message": "CourtSniper run stopped.",
-        "run": run_status.to_dict(),
-    }
-
-
-@app.get("/api/scheduler", status_code=200)
-def get_scheduler_status():
-    """Return a sanitized snapshot of the fixed Windows scheduled task."""
-    try:
-        snapshot = scheduler_adapter.get_status()
-    except WindowsSchedulerError as error:
-        raise _scheduler_http_exception(error) from error
-    return _scheduler_payload(snapshot)
-
-
-@app.post("/api/scheduler/config", status_code=200)
-def configure_scheduler(config: ScheduleConfig):
-    """Install or update the fixed task using the existing booking target."""
-    try:
-        target = _get_booking_target_time()
-        snapshot = scheduler_adapter.configure(config, target)
-    except (WindowsSchedulerError, BookingTargetConfigurationError) as error:
-        raise _scheduler_http_exception(error) from error
-    return {
-        "message": "CourtSniper schedule configured.",
-        "scheduler": _scheduler_payload(snapshot),
-    }
-
-
-@app.post("/api/scheduler/enable", status_code=200)
-def enable_scheduler():
-    """Enable future runs after confirming the target time is current."""
-    try:
-        current = scheduler_adapter.get_status()
-        if current.configuration is not None:
-            target = _get_booking_target_time()
-            if current.configuration.target_time != target.as_time():
-                raise SchedulerTaskNotConfiguredError(
-                    "Save the scheduler configuration for the current booking target before enabling it."
-                )
-        snapshot = scheduler_adapter.enable()
-    except (WindowsSchedulerError, BookingTargetConfigurationError) as error:
-        raise _scheduler_http_exception(error) from error
-    return {
-        "message": "CourtSniper schedule enabled.",
-        "scheduler": _scheduler_payload(snapshot),
-    }
-
-
-@app.post("/api/scheduler/disable", status_code=200)
-def disable_scheduler():
-    """Disable future triggers without stopping an active sniper run."""
-    try:
-        snapshot = scheduler_adapter.disable()
-    except WindowsSchedulerError as error:
-        raise _scheduler_http_exception(error) from error
-    return {
-        "message": "CourtSniper schedule disabled.",
-        "scheduler": _scheduler_payload(snapshot),
-    }
+(
+    get_scheduler_status,
+    configure_scheduler,
+    enable_scheduler,
+    disable_scheduler,
+) = scheduler_routes.register_scheduler_routes(
+    app,
+    schedule_config_type=ScheduleConfig,
+    get_scheduler_adapter=lambda: scheduler_adapter,
+    get_booking_target_time=lambda: _get_booking_target_time(),
+    scheduler_payload=lambda snapshot: _scheduler_payload(snapshot),
+    scheduler_http_exception=lambda error: _scheduler_http_exception(error),
+    scheduler_error=WindowsSchedulerError,
+    booking_target_error=BookingTargetConfigurationError,
+    not_configured_error=SchedulerTaskNotConfiguredError,
+)
