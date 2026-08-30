@@ -4,6 +4,7 @@ venv
 
 # User-specific files
 backend/user_data/
+.run/
 
 # Environment variables and secrets
 backend/.env

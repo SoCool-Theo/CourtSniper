@@ -29,6 +29,10 @@ The Windows task never runs `sniper.py` directly. Its fixed runner reuses FastAP
 ```text
 CourtSniper/
 │
+├── .run/                        # Ignored launcher PID records and local logs
+├── start-courtsniper.ps1        # Starts the native Windows backend and frontend
+├── stop-courtsniper.ps1         # Safely stops only launcher-owned processes
+│
 ├── backend/                     # Python Automation & FastAPI Service
 │   ├── .venv/                   # Isolated Python virtual environment
 │   ├── user_data/               # Cached Facebook/Chrome session cookies (hidden/ignored)
@@ -166,6 +170,24 @@ Before opening a pull request, verify the frontend with:
 npm run lint
 npm run build
 ```
+
+### 4. One-Command Local Startup
+
+After installing the backend and frontend dependencies, run the following command from the repository root:
+
+```powershell
+.\start-courtsniper.ps1
+```
+
+The launcher starts FastAPI and Vite as hidden native Windows processes, waits for both local services to become ready, and opens no network ports beyond `127.0.0.1`. It records the exact process IDs, executable paths, and fixed command identities in the ignored `.run/` directory. Runtime logs are also written there without moving or copying `.env` or `user_data/`.
+
+Open the dashboard at `http://127.0.0.1:5173`. To safely stop only the processes created by the launcher, run:
+
+```powershell
+.\stop-courtsniper.ps1
+```
+
+The stop script validates each recorded PID against the expected Python or Node executable and command before terminating it. A backend or frontend process started manually is reused when recognized but is not claimed or stopped by the launcher.
 
 ---
 
