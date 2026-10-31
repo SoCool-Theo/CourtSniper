@@ -11,6 +11,15 @@ import useCourtSniper from '../context/useCourtSniper';
 const hours = Array.from({ length: 24 }, (_, index) => index.toString().padStart(2, '0'));
 const minutesAndSeconds = Array.from({ length: 60 }, (_, index) => index.toString().padStart(2, '0'));
 
+function getTargetHref(value) {
+  try {
+    const target = new URL(value);
+    return ['http:', 'https:'].includes(target.protocol) ? target.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function getDefaultDate() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
@@ -53,6 +62,7 @@ export default function Configuration() {
   const [saveFeedback, setSaveFeedback] = useState('');
 
   const url = draft.TARGET_URL ?? config.TARGET_URL ?? '';
+  const targetHref = getTargetHref(url);
   const message = draft.BOOKING_MESSAGE ?? config.BOOKING_MESSAGE ?? '';
   const hour = String(draft.TARGET_HOUR ?? config.TARGET_HOUR ?? '09').padStart(2, '0');
   const minute = String(draft.TARGET_MINUTE ?? config.TARGET_MINUTE ?? '00').padStart(2, '0');
@@ -100,7 +110,20 @@ export default function Configuration() {
                   className="tactical-input h-10 px-3 pr-10 text-sm"
                   spellCheck="false"
                 />
-                <ExternalLink aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-court-text/70" />
+                <a
+                  href={targetHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open target URL in a new tab"
+                  aria-disabled={!targetHref}
+                  className={`absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-r ${
+                    targetHref
+                      ? 'text-court-cyan transition hover:bg-court-cyan/10'
+                      : 'cursor-not-allowed text-court-muted/50'
+                  }`}
+                >
+                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                </a>
               </div>
             </div>
 

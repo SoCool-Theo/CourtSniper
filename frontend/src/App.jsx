@@ -1,5 +1,6 @@
 import AppShell from './components/AppShell';
 import Dashboard from './sections/Dashboard';
+import BookingSchedule from './sections/BookingSchedule';
 import Configuration from './sections/Configuration';
 import Session from './sections/Session';
 import Scheduler from './sections/Scheduler';
@@ -13,6 +14,8 @@ function App() {
       <section id="dashboard" className="scroll-mt-28">
         <Dashboard />
       </section>
+
+      <BookingSchedule />
 
       <section id="configuration" className="scroll-mt-28">
         <Configuration />
